@@ -24,7 +24,6 @@ func NewUserHandler(s *service.UserService) *UserHandler {
 // WithObjectHandlers registers user routes
 func (h *UserHandler) WithObjectHandlers(r *chi.Mux) {
 	r.Route("/api/users", func(r chi.Router) {
-		r.Get("/", h.GetAllUsers)
 		r.Post("/", h.CreateUser)
 		r.Get("/{login}", h.GetUserByLogin)
 	})
