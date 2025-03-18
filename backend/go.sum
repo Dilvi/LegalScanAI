@@ -1,0 +1,8 @@
+github.com/Dilvi/LegalScanAI_dev v0.0.0-20250315071436-0bcd22b7ec03 h1:Ya3TECnVT+2JjGjvOjfXowoBxJ1KBa5UndD4kh9ek/I=
+github.com/Dilvi/LegalScanAI_dev v0.0.0-20250315071436-0bcd22b7ec03/go.mod h1:sFubHv5uF+nB0OF+3rctofBp3E9hRZ+km2nlP0edKbM=
+github.com/go-chi/chi/v5 v5.2.1 h1:KOIHODQj58PmL80G2Eak4WdvUzjSJSm0vG72crDCqb8=
+github.com/go-chi/chi/v5 v5.2.1/go.mod h1:L2yAIGWB3H+phAw1NxKwWM+7eUH/lU8pOMm5hHcoops=
+github.com/go-chi/cors v1.2.1 h1:xEC8UT3Rlp2QuWNEr4Fs/c2EAGVKBwy/1vHx3bppil4=
+github.com/go-chi/cors v1.2.1/go.mod h1:sSbTewc+6wYHBBCW7ytsFSn836hqM7JxpglAy2Vzc58=
+golang.org/x/crypto v0.36.0 h1:AnAEvhDddvBdpY+uR+MyHmuZzzNqXSe/GvuDeob5L34=
+golang.org/x/crypto v0.36.0/go.mod h1:Y4J0ReaxCR1IMaabaSMugxJES1EpwhBHhv2bDHklZvc=
