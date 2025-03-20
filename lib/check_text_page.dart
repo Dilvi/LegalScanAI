@@ -1,14 +1,45 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 class CheckTextPage extends StatelessWidget {
   const CheckTextPage({super.key});
 
   @override
   Widget build(BuildContext context) {
+    TextEditingController textController = TextEditingController();
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Проверка текста"),
-        backgroundColor: const Color(0xFF800000), // Темно-красный цвет
+        backgroundColor: Colors.white,
+        elevation: 0,
+        leading: IconButton(
+          icon: Image.asset("assets/back_button.png", width: 24, height: 24),
+          onPressed: () {
+            Navigator.pop(context);
+          },
+        ),
+        title: const Text(
+          "Проверить текст",
+          style: TextStyle(
+            fontFamily: 'DM Sans',
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: Colors.black,
+          ),
+        ),
+        centerTitle: true,
+        actions: [
+          IconButton(
+            icon: Image.asset("assets/paste_button.png", width: 24, height: 24),
+            onPressed: () async {
+              ClipboardData? data =
+                  await Clipboard.getData(Clipboard.kTextPlain);
+              if (data != null) {
+                textController.text = data.text!;
+              }
+            },
+          ),
+        ],
       ),
       backgroundColor: Colors.white,
       body: Padding(
@@ -16,51 +47,45 @@ class CheckTextPage extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              "Введите текст для проверки:",
-              style: TextStyle(
-                fontFamily: 'DM Sans',
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: Colors.black,
-              ),
-            ),
-            const SizedBox(height: 10),
             TextField(
-              maxLines: 6,
+              controller: textController,
+              maxLines: 20,
               decoration: InputDecoration(
-                hintText: "Введите текст...",
+                hintText: "Введите текст для анализа",
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(10),
                   borderSide: const BorderSide(color: Colors.grey),
                 ),
               ),
             ),
-            const SizedBox(height: 20),
-            Center(
-              child: ElevatedButton(
-                onPressed: () {
-                  // Действие при нажатии на кнопку
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF800000),
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 30, vertical: 12),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-                child: const Text(
-                  "Проверить",
-                  style: TextStyle(
-                    fontFamily: 'DM Sans',
-                    fontSize: 16,
-                    color: Colors.white,
-                  ),
-                ),
-              ),
-            ),
           ],
+        ),
+      ),
+      bottomNavigationBar: _buildBottomPanel(),
+    );
+  }
+
+  Widget _buildBottomPanel() {
+    return Container(
+      width: double.infinity,
+      height: 140,
+      decoration: const BoxDecoration(
+        color: Color(0xFF800000),
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(25),
+          topRight: Radius.circular(25),
+        ),
+      ),
+      child: Center(
+        child: GestureDetector(
+          onTap: () {
+            // Действие при нажатии
+          },
+          child: Image.asset(
+            "assets/analyze_button.png",
+            width: 158,
+            height: 158,
+          ),
         ),
       ),
     );
