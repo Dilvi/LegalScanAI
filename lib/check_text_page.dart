@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'result_page.dart';
 
 class CheckTextPage extends StatelessWidget {
   const CheckTextPage({super.key});
@@ -9,6 +10,7 @@ class CheckTextPage extends StatelessWidget {
     TextEditingController textController = TextEditingController();
 
     return Scaffold(
+      resizeToAvoidBottomInset: true, // ✅ Исправление ошибки overflow
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
@@ -33,7 +35,7 @@ class CheckTextPage extends StatelessWidget {
             icon: Image.asset("assets/paste_button.png", width: 24, height: 24),
             onPressed: () async {
               ClipboardData? data =
-                  await Clipboard.getData(Clipboard.kTextPlain);
+              await Clipboard.getData(Clipboard.kTextPlain);
               if (data != null) {
                 textController.text = data.text!;
               }
@@ -42,30 +44,32 @@ class CheckTextPage extends StatelessWidget {
         ],
       ),
       backgroundColor: Colors.white,
-      body: Padding(
-        padding: const EdgeInsets.all(20.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            TextField(
-              controller: textController,
-              maxLines: 20,
-              decoration: InputDecoration(
-                hintText: "Введите текст для анализа",
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: const BorderSide(color: Colors.grey),
+      body: SingleChildScrollView( // ✅ Добавлена прокрутка
+        child: Padding(
+          padding: const EdgeInsets.all(20.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              TextField(
+                controller: textController,
+                maxLines: 20,
+                decoration: InputDecoration(
+                  hintText: "Введите текст для анализа",
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: const BorderSide(color: Colors.grey),
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
-      bottomNavigationBar: _buildBottomPanel(),
+      bottomNavigationBar: _buildBottomPanel(context, textController),
     );
   }
 
-  Widget _buildBottomPanel() {
+  Widget _buildBottomPanel(BuildContext context, TextEditingController textController) {
     return Container(
       width: double.infinity,
       height: 140,
@@ -79,7 +83,15 @@ class CheckTextPage extends StatelessWidget {
       child: Center(
         child: GestureDetector(
           onTap: () {
-            // Действие при нажатии
+            String inputText = textController.text.trim();
+            if (inputText.isNotEmpty) {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => ResultPage(analyzedText: inputText),
+                ),
+              );
+            }
           },
           child: Image.asset(
             "assets/analyze_button.png",

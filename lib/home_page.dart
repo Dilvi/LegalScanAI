@@ -40,11 +40,11 @@ class HomePage extends StatelessWidget {
             ),
           ),
 
-          // Стрелка по центру экрана над блоком с кнопками
+          // Стрелка теперь вплотную к нижней панели
           Align(
-            alignment: Alignment.center,
+            alignment: Alignment.bottomCenter,
             child: Padding(
-              padding: const EdgeInsets.only(bottom: 140 + 16),
+              padding: const EdgeInsets.only(bottom: 180 - 48), // Уменьшил отступ, чтобы стрелка была ближе
               child: Image.asset(
                 'assets/arrow.png',
                 width: 96,
@@ -87,7 +87,7 @@ class HomePage extends StatelessWidget {
                 _buildSquare(
                   "Проверить\nтекст",
                   "assets/check_text_icon.png",
-                  () {
+                      () {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
@@ -98,12 +98,12 @@ class HomePage extends StatelessWidget {
                 _buildSquare(
                   "Сканировать\nдокумент",
                   "assets/scan_doc_icon.png",
-                  () {},
+                      () {},
                 ),
                 _buildSquare(
                   "Загрузить\nфайл",
                   "assets/upload_file_icon.png",
-                  () {},
+                      () {},
                 ),
               ],
             ),
