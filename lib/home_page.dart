@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'check_text_page.dart'; // Импортируем страницу проверки текста
 
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
@@ -17,26 +18,24 @@ class HomePage extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Заголовок "Добро пожаловать"
                 SizedBox(height: 54),
                 Text(
                   "Добро пожаловать",
                   style: TextStyle(
                     fontFamily: 'DM Sans',
-                    fontSize: 34, // Размер шрифта 34px
-                    fontWeight: FontWeight.bold, // Жирный текст
-                    color: Colors.black, // Цвет черный
+                    fontSize: 34,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black,
                   ),
                 ),
-                SizedBox(height: 14), // Отступ 14px
-                // Подзаголовок "Последние проверки/результат анализа"
+                SizedBox(height: 14),
                 Text(
                   "Последние проверки/результат анализа",
                   style: TextStyle(
                     fontFamily: 'DM Sans',
-                    fontSize: 15, // Размер шрифта 15px
-                    fontWeight: FontWeight.normal, // Обычный текст
-                    color: Color(0xFF737C97), // Серый цвет #737C97
+                    fontSize: 15,
+                    fontWeight: FontWeight.normal,
+                    color: Color(0xFF737C97),
                   ),
                 ),
               ],
@@ -50,10 +49,10 @@ class HomePage extends StatelessWidget {
               padding: const EdgeInsets.only(
                   bottom: 140 + 16), // Отступ над кнопками
               child: Image.asset(
-                'assets/arrow.png', // Путь к изображению
-                width: 96, // Ширина стрелки (можно изменить)
-                height: 96, // Высота стрелки
-                fit: BoxFit.contain, // Подгонка размера
+                'assets/arrow.png',
+                width: 96,
+                height: 96,
+                fit: BoxFit.contain,
               ),
             ),
           ),
@@ -61,7 +60,7 @@ class HomePage extends StatelessWidget {
           // Нижняя панель с кнопками
           Align(
             alignment: Alignment.bottomCenter,
-            child: _buildBottomPanel(),
+            child: _buildBottomPanel(context), // Передаем context в метод
           ),
         ],
       ),
@@ -69,31 +68,35 @@ class HomePage extends StatelessWidget {
   }
 
   // Метод для создания нижней панели
-  Widget _buildBottomPanel() {
+  Widget _buildBottomPanel(BuildContext context) {
     return Container(
-      width: double.infinity, // На всю ширину экрана
-      height: 140, // Высота 140px для размещения кнопок
+      width: double.infinity,
+      height: 140,
       decoration: const BoxDecoration(
-        color: Color(0xFF800000), // Темно-красный цвет #800000
+        color: Color(0xFF800000),
         borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(25), // Закругление верхнего левого угла 25px
-          topRight:
-              Radius.circular(25), // Закругление верхнего правого угла 25px
+          topLeft: Radius.circular(25),
+          topRight: Radius.circular(25),
         ),
       ),
       child: Padding(
-        padding:
-            const EdgeInsets.symmetric(horizontal: 21), // Отступы по бокам 21px
+        padding: const EdgeInsets.symmetric(horizontal: 21),
         child: Column(
           children: [
-            const SizedBox(height: 16), // Отступ сверху перед кнопками
+            const SizedBox(height: 16),
             Row(
-              mainAxisAlignment: MainAxisAlignment
-                  .spaceBetween, // Равномерное распределение по горизонтали
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                _buildSquare("Проверить\nтекст"), // Левая кнопка
-                _buildSquare("Сканировать\nдокумент"), // Центральная кнопка
-                _buildSquare("Загрузить\nфайл"), // Правая кнопка
+                _buildSquare("Проверить\nтекст", () {
+                  // Открываем страницу проверки текста при нажатии
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (context) => const CheckTextPage()),
+                  );
+                }),
+                _buildSquare("Сканировать\nдокумент", () {}),
+                _buildSquare("Загрузить\nфайл", () {}),
               ],
             ),
           ],
@@ -103,13 +106,11 @@ class HomePage extends StatelessWidget {
   }
 
   // Метод для создания квадратных кнопок
-  Widget _buildSquare(String label) {
+  Widget _buildSquare(String label, VoidCallback onTap) {
     return Column(
       children: [
         InkWell(
-          onTap: () {
-            // Действие при нажатии
-          },
+          onTap: onTap,
           borderRadius: BorderRadius.circular(8),
           child: Container(
             width: 52,
