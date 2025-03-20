@@ -7,14 +7,12 @@ class HomePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white, // Фон экрана - белый
+      backgroundColor: Colors.white,
       body: Stack(
         children: [
           // Верхняя часть экрана с приветствием и текстом
           const Padding(
-            padding: EdgeInsets.symmetric(
-                horizontal: 20,
-                vertical: 40), // Отступы сверху (40px) и по бокам (20px)
+            padding: EdgeInsets.symmetric(horizontal: 20, vertical: 40),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -46,8 +44,7 @@ class HomePage extends StatelessWidget {
           Align(
             alignment: Alignment.center,
             child: Padding(
-              padding: const EdgeInsets.only(
-                  bottom: 140 + 16), // Отступ над кнопками
+              padding: const EdgeInsets.only(bottom: 140 + 16),
               child: Image.asset(
                 'assets/arrow.png',
                 width: 96,
@@ -60,7 +57,7 @@ class HomePage extends StatelessWidget {
           // Нижняя панель с кнопками
           Align(
             alignment: Alignment.bottomCenter,
-            child: _buildBottomPanel(context), // Передаем context в метод
+            child: _buildBottomPanel(context),
           ),
         ],
       ),
@@ -87,16 +84,27 @@ class HomePage extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                _buildSquare("Проверить\nтекст", () {
-                  // Открываем страницу проверки текста при нажатии
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (context) => const CheckTextPage()),
-                  );
-                }),
-                _buildSquare("Сканировать\nдокумент", () {}),
-                _buildSquare("Загрузить\nфайл", () {}),
+                _buildSquare(
+                  "Проверить\nтекст",
+                  "assets/check_text_icon.png",
+                  () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (context) => const CheckTextPage()),
+                    );
+                  },
+                ),
+                _buildSquare(
+                  "Сканировать\nдокумент",
+                  "assets/scan_doc_icon.png",
+                  () {},
+                ),
+                _buildSquare(
+                  "Загрузить\nфайл",
+                  "assets/upload_file_icon.png",
+                  () {},
+                ),
               ],
             ),
           ],
@@ -105,8 +113,8 @@ class HomePage extends StatelessWidget {
     );
   }
 
-  // Метод для создания квадратных кнопок
-  Widget _buildSquare(String label, VoidCallback onTap) {
+  // Метод для создания квадратных кнопок с иконкой
+  Widget _buildSquare(String label, String iconPath, VoidCallback onTap) {
     return Column(
       children: [
         InkWell(
@@ -118,6 +126,9 @@ class HomePage extends StatelessWidget {
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(8),
+            ),
+            child: Center(
+              child: Image.asset(iconPath, width: 24, height: 24),
             ),
           ),
         ),
