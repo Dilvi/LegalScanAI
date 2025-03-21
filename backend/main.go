@@ -1,42 +1,90 @@
 package main
 
 import (
+	"bytes"
+	"encoding/json"
 	"flag"
+	"io"
 	"log"
-
 	"net/http"
 
-	pkgHttp "github.com/Dilvi/LegalScanAI_dev/backend/api/user"
-	repository "github.com/Dilvi/LegalScanAI_dev/backend/repository/ram_storage"
+	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/cors"
+	"github.com/gofiber/fiber/v2/middleware/logger"
+	"github.com/gofiber/fiber/v2/middleware/recover"
+
+	"github.com/Dilvi/LegalScanAI_dev/backend/api/user"
+	repository "github.com/Dilvi/LegalScanAI_dev/backend/repository/database"
 	"github.com/Dilvi/LegalScanAI_dev/backend/usecases/service"
-	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
-	"github.com/go-chi/cors"
 )
+
+// Handler for LegalBert analysis
+func handleLegalAnalysis(c *fiber.Ctx) error {
+	var req struct {
+		Text string `json:"text"`
+	}
+
+	// Parse request body
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid request body",
+		})
+	}
+
+	// Prepare payload for Python service
+	payload := map[string]string{"text": req.Text}
+	jsonPayload, _ := json.Marshal(payload)
+
+	// Call Python LegalBert service
+	resp, err := http.Post(
+		"http://localhost:8000/predict", // Ensure this matches your Python API's endpoint
+		"application/json",
+		bytes.NewBuffer(jsonPayload),
+	)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to call LegalBert service",
+		})
+	}
+	defer resp.Body.Close()
+
+	// Read response from Python service
+	body, _ := io.ReadAll(resp.Body)
+	return c.Status(resp.StatusCode).SendString(string(body))
+}
 
 func main() {
 	addr := flag.String("addr", ":8080", "HTTP server address")
 	flag.Parse()
 
-	userRepo := repository.NewUserRepository()
-	userService := service.NewUserService(userRepo)
-	userHandler := pkgHttp.NewUserHandler(userService)
+	// Initialize user components
+	userRepo := repository.NewUserRepository()      // Ensure this returns a valid UserRepository
+	userService := service.NewUserService(userRepo) // Returns *service.UserService
+	userHandler := user.NewUserHandler(userService) // Ensure this accepts the UserService interface
 
-	r := chi.NewRouter()
+	// Create Fiber app
+	app := fiber.New()
 
-	r.Use(cors.Handler(cors.Options{
-		AllowedOrigins: []string{"*"},
-		AllowedMethods: []string{"GET", "POST", "PUT"},
-		AllowedHeaders: []string{"*"},
+	// CORS Configuration
+	app.Use(cors.New(cors.Config{
+		AllowOrigins: "http://localhost:3000", // Adjust as needed
+		AllowMethods: "GET,POST,PUT,PATCH,DELETE,OPTIONS",
+		AllowHeaders: "Origin,Content-Type,Accept,Authorization",
 	}))
 
-	r.Use(middleware.Logger)
-	r.Use(middleware.Recoverer)
-	userHandler.WithObjectHandlers(r)
+	// Middleware
+	app.Use(logger.New())
+	app.Use(recover.New())
+
+	// Register user routes using Fiber's router
+	userGroup := app.Group("/api/users")  // Use the correct route path
+	userHandler.RegisterRoutes(userGroup) // Use the correct method name
+
+	// Add LegalBert endpoint
+	app.Post("/analyze", handleLegalAnalysis)
 
 	log.Printf("Starting HTTP server on %s", *addr)
-	err := http.ListenAndServe(*addr, r)
-	if err != nil {
+	if err := app.Listen(*addr); err != nil {
 		log.Fatalf("Server failed: %v", err)
 	}
 }
