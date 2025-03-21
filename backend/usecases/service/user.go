@@ -25,3 +25,7 @@ func (s *UserService) GetByEmail(email string) (*repository.User, error) {
 func (s *UserService) GetByPhoneNumber(phone_number string) (*repository.User, error) {
 	return s.Repo.GetByPhoneNumber(phone_number)
 }
+
+func (s *UserService) Save(user *repository.User) (*repository.User, error) {
+	return s.Repo.Save(user) // Delegate to the repository's Save method
+}

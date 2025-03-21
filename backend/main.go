@@ -13,9 +13,13 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/gofiber/fiber/v2/middleware/recover"
 
-	"github.com/Dilvi/LegalScanAI_dev/backend/api/user"
+	user "github.com/Dilvi/LegalScanAI_dev/backend/api/user"
 	repository "github.com/Dilvi/LegalScanAI_dev/backend/repository/database"
 	"github.com/Dilvi/LegalScanAI_dev/backend/usecases/service"
+
+	"github.com/go-redis/redis/v8"
+	"gorm.io/driver/postgres" // PostgreSQL driver
+	"gorm.io/gorm"
 )
 
 // Handler for LegalBert analysis
@@ -57,10 +61,26 @@ func main() {
 	addr := flag.String("addr", ":8080", "HTTP server address")
 	flag.Parse()
 
+	// PostgreSQL connection string
+	psqlInfo := "host=localhost user=postgres password=yourpassword dbname=legal_db port=5432 sslmode=disable"
+
+	// Initialize PostgreSQL database
+	db, err := gorm.Open(postgres.Open(psqlInfo), &gorm.Config{})
+	if err != nil {
+		log.Fatalf("Failed to connect to PostgreSQL: %v", err)
+	}
+
+	// Initialize Redis client
+	redisClient := redis.NewClient(&redis.Options{
+		Addr:     "localhost:6379", // Redis address
+		Password: "",               // No password
+		DB:       0,                // Default DB
+	})
+
 	// Initialize user components
-	userRepo := repository.NewUserRepository()      // Ensure this returns a valid UserRepository
-	userService := service.NewUserService(userRepo) // Returns *service.UserService
-	userHandler := user.NewUserHandler(userService) // Ensure this accepts the UserService interface
+	userRepo := repository.NewUserRepository(db, redisClient)
+	userService := service.NewUserService(userRepo)
+	userHandler := user.NewUserHandler(userService)
 
 	// Create Fiber app
 	app := fiber.New()
@@ -76,14 +96,14 @@ func main() {
 	app.Use(logger.New())
 	app.Use(recover.New())
 
-	// Register user routes using Fiber's router
-	userGroup := app.Group("/api/users")  // Use the correct route path
-	userHandler.RegisterRoutes(userGroup) // Use the correct method name
+	// Register user routes
+	userGroup := app.Group("/api/users")
+	userHandler.RegisterRoutes(userGroup)
 
 	// Add LegalBert endpoint
 	app.Post("/analyze", handleLegalAnalysis)
 
-	log.Printf("Starting HTTP server on %s", *addr)
+	log.Printf("Starting server on %s", *addr)
 	if err := app.Listen(*addr); err != nil {
 		log.Fatalf("Server failed: %v", err)
 	}
