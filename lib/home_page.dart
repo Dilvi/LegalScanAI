@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'check_text_page.dart';
 import 'profile_page.dart'; // Страница профиля
+import 'chat_page.dart';
 
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
@@ -89,7 +90,12 @@ class HomePage extends StatelessWidget {
               width: double.infinity,
               child: ElevatedButton(
                 onPressed: () {
-                  // TODO: Перейти к AI-ассистенту
+                  Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                      builder: (context) => const ChatPage(),
+                  ),
+                  );
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.white,
