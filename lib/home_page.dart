@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
-import 'check_text_page.dart'; // Импортируем страницу проверки текста
+import 'package:flutter_svg/flutter_svg.dart';
+import 'check_text_page.dart';
+import 'profile_page.dart'; // Страница профиля
 
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
@@ -10,14 +12,30 @@ class HomePage extends StatelessWidget {
       backgroundColor: Colors.white,
       body: Stack(
         children: [
-          // Верхняя часть экрана с приветствием и текстом
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 20, vertical: 40),
+          // Верхняя часть с аватаркой и текстом
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 40),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                SizedBox(height: 54),
-                Text(
+                // Аватарка в левом верхнем углу
+                GestureDetector(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const ProfilePage(),
+                      ),
+                    );
+                  },
+                  child: const CircleAvatar(
+                    radius: 22.5,
+                    backgroundColor: Color(0xFF800000),
+                    child: Icon(Icons.person, color: Colors.white),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                const Text(
                   "Добро пожаловать",
                   style: TextStyle(
                     fontFamily: 'DM Sans',
@@ -26,8 +44,8 @@ class HomePage extends StatelessWidget {
                     color: Colors.black,
                   ),
                 ),
-                SizedBox(height: 14),
-                Text(
+                const SizedBox(height: 14),
+                const Text(
                   "Последние проверки/результат анализа",
                   style: TextStyle(
                     fontFamily: 'DM Sans',
@@ -37,20 +55,6 @@ class HomePage extends StatelessWidget {
                   ),
                 ),
               ],
-            ),
-          ),
-
-          // Стрелка теперь вплотную к нижней панели
-          Align(
-            alignment: Alignment.bottomCenter,
-            child: Padding(
-              padding: const EdgeInsets.only(bottom: 180 - 48), // Уменьшил отступ, чтобы стрелка была ближе
-              child: Image.asset(
-                'assets/arrow.png',
-                width: 96,
-                height: 96,
-                fit: BoxFit.contain,
-              ),
             ),
           ),
 
@@ -64,46 +68,76 @@ class HomePage extends StatelessWidget {
     );
   }
 
-  // Метод для создания нижней панели
+  // Нижняя панель
   Widget _buildBottomPanel(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      height: 140,
-      decoration: const BoxDecoration(
-        color: Color(0xFF800000),
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(25),
-          topRight: Radius.circular(25),
-        ),
+    return Material(
+      color: const Color(0xFF800000),
+      borderRadius: const BorderRadius.only(
+        topLeft: Radius.circular(25),
+        topRight: Radius.circular(25),
       ),
-      child: Padding(
+      child: Container(
+        width: double.infinity,
+        height: 219,
         padding: const EdgeInsets.symmetric(horizontal: 21),
         child: Column(
           children: [
-            const SizedBox(height: 16),
+            const SizedBox(height: 26),
+            // Кнопка LegalMind
+            SizedBox(
+              height: 52,
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () {
+                  // TODO: Перейти к AI-ассистенту
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.white,
+                  foregroundColor: const Color(0xFF800000),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: const Text(
+                  "LegalMind – AI помощник по праву",
+                  style: TextStyle(
+                    fontFamily: 'DM Sans',
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 26),
+            // Нижние кнопки
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                _buildSquare(
-                  "Проверить\nтекст",
-                  "assets/check_text_icon.png",
-                      () {
+                _buildIconButton(
+                  label: "Проверить\nтекст",
+                  iconPath: "assets/check_text_icon.svg",
+                  onTap: () {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                          builder: (context) => const CheckTextPage()),
+                        builder: (_) => const CheckTextPage(),
+                      ),
                     );
                   },
                 ),
-                _buildSquare(
-                  "Сканировать\nдокумент",
-                  "assets/scan_doc_icon.png",
-                      () {},
+                _buildIconButton(
+                  label: "Сканировать\nдокумент",
+                  iconPath: "assets/scan_doc_icon.svg",
+                  onTap: () {
+                    // TODO
+                  },
                 ),
-                _buildSquare(
-                  "Загрузить\nфайл",
-                  "assets/upload_file_icon.png",
-                      () {},
+                _buildIconButton(
+                  label: "Загрузить\nфайл",
+                  iconPath: "assets/upload_file_icon.svg",
+                  onTap: () {
+                    // TODO
+                  },
                 ),
               ],
             ),
@@ -113,22 +147,33 @@ class HomePage extends StatelessWidget {
     );
   }
 
-  // Метод для создания квадратных кнопок с иконкой
-  Widget _buildSquare(String label, String iconPath, VoidCallback onTap) {
+  // Кнопка с иконкой и подписью
+  Widget _buildIconButton({
+    required String label,
+    required String iconPath,
+    required VoidCallback onTap,
+  }) {
     return Column(
       children: [
-        InkWell(
-          onTap: onTap,
+        Material(
+          color: Colors.white,
           borderRadius: BorderRadius.circular(8),
-          child: Container(
-            width: 52,
-            height: 52,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Center(
-              child: Image.asset(iconPath, width: 24, height: 24),
+          elevation: 1,
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(8),
+            splashColor: Colors.grey.withOpacity(0.3),
+            child: SizedBox(
+              width: 52,
+              height: 52,
+              child: Center(
+                child: SvgPicture.asset(
+                  iconPath,
+                  width: 24,
+                  height: 24,
+                  color: const Color(0xFF800000),
+                ),
+              ),
             ),
           ),
         ),
