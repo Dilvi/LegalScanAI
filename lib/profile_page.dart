@@ -3,6 +3,11 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'dart:io';
+import 'security_page.dart'; // Импорт страницы безопасности
+import 'personal_data_page.dart'; // Импорт страницы личных данных
+import 'notifications_page.dart';
+import 'save_route_page.dart';
+import 'subscription_page.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -37,10 +42,7 @@ class _ProfilePageState extends State<ProfilePage> {
           children: [
             // Верхняя панель
             Padding(
-              padding: EdgeInsets.symmetric(
-                horizontal: 20 * scale,
-                vertical: 12 * scale,
-              ),
+              padding: EdgeInsets.symmetric(horizontal: 20 * scale, vertical: 12 * scale),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -61,7 +63,7 @@ class _ProfilePageState extends State<ProfilePage> {
                       color: Colors.black,
                     ),
                   ),
-                  SizedBox(width: 48 * scale),
+                  SizedBox(width: 48 * scale), // для выравнивания
                 ],
               ),
             ),
@@ -74,11 +76,9 @@ class _ProfilePageState extends State<ProfilePage> {
               child: CircleAvatar(
                 radius: 40 * scale,
                 backgroundColor: const Color(0xFF800000),
-                backgroundImage:
-                _avatarImage != null ? FileImage(_avatarImage!) : null,
+                backgroundImage: _avatarImage != null ? FileImage(_avatarImage!) : null,
                 child: _avatarImage == null
-                    ? Icon(Icons.person,
-                    size: 40 * scale, color: Colors.white)
+                    ? Icon(Icons.person, size: 40 * scale, color: Colors.white)
                     : null,
               ),
             ),
@@ -88,52 +88,66 @@ class _ProfilePageState extends State<ProfilePage> {
             // Кнопки профиля
             _buildProfileButton(
               "Личные данные",
-              SvgPicture.asset(
-                'assets/arrow-right.svg',
-                width: 20 * scale,
-                height: 20 * scale,
-              ),
+              SvgPicture.asset('assets/arrow-right.svg', width: 20 * scale, height: 20 * scale),
               scale,
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const PersonalDataPage()),
+                );
+              },
             ),
             SizedBox(height: 12 * scale),
+
             _buildProfileButton(
               "Безопасность и вход",
-              SvgPicture.asset(
-                'assets/arrow-right.svg',
-                width: 20 * scale,
-                height: 20 * scale,
-              ),
+              SvgPicture.asset('assets/arrow-right.svg', width: 20 * scale, height: 20 * scale),
               scale,
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const SecurityPage()),
+                );
+              },
             ),
             SizedBox(height: 12 * scale),
+
             _buildProfileButton(
               "Уведомления",
-              SvgPicture.asset(
-                'assets/arrow-right.svg',
-                width: 20 * scale,
-                height: 20 * scale,
-              ),
+              SvgPicture.asset('assets/arrow-right.svg', width: 20 * scale, height: 20 * scale),
               scale,
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const NotificationsPage()),
+                );
+              },
             ),
             SizedBox(height: 12 * scale),
+
             _buildProfileButton(
               "Путь сохранения",
-              SvgPicture.asset(
-                'assets/arrow-right.svg',
-                width: 20 * scale,
-                height: 20 * scale,
-              ),
+              SvgPicture.asset('assets/arrow-right.svg', width: 20 * scale, height: 20 * scale),
               scale,
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const SaveRoutePage()),
+                );
+              },
             ),
             SizedBox(height: 12 * scale),
+
             _buildProfileButton(
               "Подключить PRO версию",
-              Icon(
-                LucideIcons.crown,
-                size: 20 * scale,
-                color: const Color(0xFF800000),
-              ),
+              SvgPicture.asset('assets/arrow-right.svg', width: 20 * scale, height: 20 * scale),
               scale,
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const SubscriptionPage()),
+                );
+              },
             ),
           ],
         ),
@@ -180,16 +194,13 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  // Кнопка с ripple-анимацией
-  Widget _buildProfileButton(String label, Widget icon, double scale) {
+  // Метод создания кнопок профиля
+  Widget _buildProfileButton(String label, Widget icon, double scale, {VoidCallback? onTap}) {
     return Material(
       color: Colors.transparent,
       borderRadius: BorderRadius.circular(10 * scale),
       child: InkWell(
-        onTap: () {
-          debugPrint('$label tapped');
-          // TODO: Навигация или действие
-        },
+        onTap: onTap ?? () => debugPrint('$label tapped'),
         borderRadius: BorderRadius.circular(10 * scale),
         splashColor: const Color(0x22800000),
         highlightColor: Colors.transparent,
@@ -199,10 +210,7 @@ class _ProfilePageState extends State<ProfilePage> {
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(10 * scale),
-            border: Border.all(
-              color: const Color(0xFF800000),
-              width: 1,
-            ),
+            border: Border.all(color: const Color(0xFF800000), width: 1),
           ),
           padding: EdgeInsets.symmetric(horizontal: 16 * scale),
           child: Row(
