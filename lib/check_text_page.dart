@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'result_page.dart';
+import '../services/api_service.dart';
+
 
 class CheckTextPage extends StatelessWidget {
   const CheckTextPage({super.key});
@@ -82,17 +84,28 @@ class CheckTextPage extends StatelessWidget {
       ),
       child: Center(
         child: GestureDetector(
-          onTap: () {
+          onTap: () async {
             String inputText = textController.text.trim();
             if (inputText.isNotEmpty) {
+              showDialog(
+                context: context,
+                barrierDismissible: false,
+                builder: (_) => const Center(child: CircularProgressIndicator()),
+              );
+
+              final analyzedResult = await ApiService.analyzeText(inputText);
+
+              Navigator.pop(context); // Закрыть индикатор загрузки
+
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => ResultPage(analyzedText: inputText),
+                  builder: (context) => ResultPage(analyzedText: analyzedResult),
                 ),
               );
             }
           },
+
           child: Image.asset(
             "assets/analyze_button.png",
             width: 158,

@@ -33,6 +33,7 @@ dependencies:
   flutter_svg: ^2.0.7
   image_picker: ^1.0.4
   lucide_icons: ^0.257.0
+  http: ^0.13.5
 
 
 

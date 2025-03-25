@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:lucide_icons/lucide_icons.dart';
 import 'dart:io';
 import 'security_page.dart'; // Импорт страницы безопасности
 import 'personal_data_page.dart'; // Импорт страницы личных данных
@@ -174,7 +173,7 @@ class _ProfilePageState extends State<ProfilePage> {
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.white,
-                foregroundColor: Color(0xFF800000),
+                foregroundColor: const Color(0xFF800000),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
