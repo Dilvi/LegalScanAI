@@ -5,7 +5,7 @@ class ApiService {
   static const String _baseUrl = "http://10.0.2.2:8000"; // Android emulator
 
   static Future<String> analyzeText(String text) async {
-    final url = Uri.parse("$_baseUrl/analyze");
+    final url = Uri.parse("$_baseUrl/classify"); // ✅ изменён путь
 
     try {
       final response = await http.post(
