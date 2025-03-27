@@ -41,3 +41,6 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+# Исключаем локальную модель
+backend_services/model_doc_type/
+
