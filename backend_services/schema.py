@@ -1,4 +1,3 @@
-# backend_services/schema.py
 from pydantic import BaseModel
 
 class AnalyzeRequest(BaseModel):

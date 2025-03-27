@@ -1,4 +1,3 @@
-# backend_services/model.py
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
 import torch
 
