@@ -1,12 +1,14 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:http/http.dart' as http;
+import 'package:mime/mime.dart';
+import 'package:http_parser/http_parser.dart';
 
 class ApiService {
-  static const String _baseUrl = "http://10.0.2.2:8000";
+  static const String _baseUrl = "http://localhost:8000"; // Android emulator
 
   static Future<String> analyzeText(String text) async {
     final url = Uri.parse("$_baseUrl/analyze");
-
     try {
       final response = await http.post(
         url,
@@ -22,6 +24,31 @@ class ApiService {
       }
     } catch (e) {
       return "Ошибка подключения: $e";
+    }
+  }
+
+  static Future<String> analyzeImage(String imagePath) async {
+    final url = Uri.parse("$_baseUrl/analyze-image");
+    try {
+      var request = http.MultipartRequest('POST', url);
+      String mimeType = lookupMimeType(imagePath) ?? 'image/jpeg';
+      request.files.add(await http.MultipartFile.fromPath(
+        'file',
+        imagePath,
+        contentType: MediaType(mimeType.split('/')[0], mimeType.split('/')[1]),
+      ));
+
+      var response = await request.send();
+
+      if (response.statusCode == 200) {
+        final responseData = await http.Response.fromStream(response);
+        final data = jsonDecode(responseData.body);
+        return data['result'] ?? "Нет результата";
+      } else {
+        return "Ошибка сервера: ${response.statusCode}";
+      }
+    } catch (e) {
+      return "Ошибка при распознавании изображения: $e";
     }
   }
 }

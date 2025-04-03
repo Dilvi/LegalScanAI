@@ -4,8 +4,6 @@ from document_classifier import DocumentClassifier
 from ner_extractor import NERExtractor
 from anonymizer import Anonymizer
 from llm_connector import LLMConnector
-import asyncio
-from concurrent.futures import ThreadPoolExecutor
 
 app = FastAPI()
 
@@ -14,20 +12,15 @@ ner_extractor = NERExtractor()
 anonymizer = Anonymizer()
 llm_connector = LLMConnector()
 
-executor = ThreadPoolExecutor()
-
 class TextInput(BaseModel):
     text: str
-
-async def get_recommendation_async(text: str, doc_type: str, entities: list):
-    loop = asyncio.get_event_loop()
-    return await loop.run_in_executor(executor, llm_connector.get_recommendation, text, doc_type, entities)
 
 @app.post("/analyze")
 async def analyze_text(input: TextInput):
     # Классификация документа
     result = classifier.classify(input.text)
     classification_result = f"📝 Тип документа: {result['label']} (уверенность: {result['confidence']}%)"
+    doc_type = result['label']  # Получаем тип документа
 
     # Извлечение сущностей
     entities = ner_extractor.extract_entities(input.text)
@@ -43,11 +36,8 @@ async def analyze_text(input: TextInput):
     anonymized_text_block = f"\n\n🔒 Обезличенный текст:\n{anonymized_text}"
 
     # Получение рекомендации от GPT-4o-mini
-    try:
-        recommendation = await get_recommendation_async(anonymized_text, result['label'], entities)
-        recommendation_block = f"\n\n💬 Рекомендация от GPT-4o-mini:\n{recommendation}"
-    except Exception as e:
-        recommendation_block = f"\n\n💬 Ошибка генерации рекомендации: {str(e)}"
+    recommendation = llm_connector.get_recommendation(anonymized_text, doc_type, entities)
+    recommendation_block = f"\n\n💬 Рекомендация от GPT-4o-mini:\n{recommendation}"
 
     # Формируем полный результат
     full_result = classification_result + entities_text + anonymized_text_block + recommendation_block
