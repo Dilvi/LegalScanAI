@@ -1,0 +1,3 @@
+Get-Process -Name python
+Get-Process -Name python | Stop-Process -Force
+uvicorn main:app --reload

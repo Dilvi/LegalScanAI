@@ -3,16 +3,32 @@ import 'package:flutter/services.dart';
 import 'result_page.dart';
 import '../services/api_service.dart';
 
-
-class CheckTextPage extends StatelessWidget {
+class CheckTextPage extends StatefulWidget {
   const CheckTextPage({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    TextEditingController textController = TextEditingController();
+  _CheckTextPageState createState() => _CheckTextPageState();
+}
 
+class _CheckTextPageState extends State<CheckTextPage> {
+  late TextEditingController textController;
+
+  @override
+  void initState() {
+    super.initState();
+    textController = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    textController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
-      resizeToAvoidBottomInset: true, // ✅ Исправление ошибки overflow
+      resizeToAvoidBottomInset: true,
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
@@ -36,17 +52,18 @@ class CheckTextPage extends StatelessWidget {
           IconButton(
             icon: Image.asset("assets/paste_button.png", width: 24, height: 24),
             onPressed: () async {
-              ClipboardData? data =
-              await Clipboard.getData(Clipboard.kTextPlain);
+              ClipboardData? data = await Clipboard.getData(Clipboard.kTextPlain);
               if (data != null) {
-                textController.text = data.text!;
+                setState(() {
+                  textController.text = data.text!;
+                });
               }
             },
           ),
         ],
       ),
       backgroundColor: Colors.white,
-      body: SingleChildScrollView( // ✅ Добавлена прокрутка
+      body: SingleChildScrollView(
         child: Padding(
           padding: const EdgeInsets.all(20.0),
           child: Column(
@@ -67,11 +84,11 @@ class CheckTextPage extends StatelessWidget {
           ),
         ),
       ),
-      bottomNavigationBar: _buildBottomPanel(context, textController),
+      bottomNavigationBar: _buildBottomPanel(context),
     );
   }
 
-  Widget _buildBottomPanel(BuildContext context, TextEditingController textController) {
+  Widget _buildBottomPanel(BuildContext context) {
     return Container(
       width: double.infinity,
       height: 140,
@@ -86,13 +103,23 @@ class CheckTextPage extends StatelessWidget {
         child: GestureDetector(
           onTap: () async {
             String inputText = textController.text.trim();
-            if (inputText.isNotEmpty) {
-              showDialog(
-                context: context,
-                barrierDismissible: false,
-                builder: (_) => const Center(child: CircularProgressIndicator()),
+            if (inputText.isEmpty) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text("Пожалуйста, введите текст для анализа"),
+                  backgroundColor: Colors.red,
+                ),
               );
+              return;
+            }
 
+            showDialog(
+              context: context,
+              barrierDismissible: false,
+              builder: (_) => const Center(child: CircularProgressIndicator()),
+            );
+
+            try {
               final analyzedResult = await ApiService.analyzeText(inputText);
 
               Navigator.pop(context); // Закрыть индикатор загрузки
@@ -103,9 +130,16 @@ class CheckTextPage extends StatelessWidget {
                   builder: (context) => ResultPage(analyzedText: analyzedResult),
                 ),
               );
+            } catch (e) {
+              Navigator.pop(context); // Закрыть индикатор загрузки
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text("Ошибка анализа: $e"),
+                  backgroundColor: Colors.red,
+                ),
+              );
             }
           },
-
           child: Image.asset(
             "assets/analyze_button.png",
             width: 158,
