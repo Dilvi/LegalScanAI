@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'result_page.dart';
 import '../services/api_service.dart';
+import 'load.dart';
 
 class CheckTextPage extends StatefulWidget {
   const CheckTextPage({super.key});
@@ -113,17 +114,19 @@ class _CheckTextPageState extends State<CheckTextPage> {
               return;
             }
 
-            showDialog(
-              context: context,
-              barrierDismissible: false,
-              builder: (_) => const Center(child: CircularProgressIndicator()),
+            // Переход на страницу загрузки
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const LoadPage()),
             );
 
             try {
               final analyzedResult = await ApiService.analyzeText(inputText);
 
-              Navigator.pop(context); // Закрыть индикатор загрузки
+              // Закрыть страницу загрузки
+              Navigator.pop(context);
 
+              // Переход на страницу с результатом
               Navigator.push(
                 context,
                 MaterialPageRoute(
@@ -131,7 +134,8 @@ class _CheckTextPageState extends State<CheckTextPage> {
                 ),
               );
             } catch (e) {
-              Navigator.pop(context); // Закрыть индикатор загрузки
+              // Закрыть страницу загрузки в случае ошибки
+              Navigator.pop(context);
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   content: Text("Ошибка анализа: $e"),

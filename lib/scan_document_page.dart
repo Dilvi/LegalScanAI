@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:camera/camera.dart';
+import 'package:image_picker/image_picker.dart';
 import 'result_page.dart';
 import '../services/api_service.dart';
+import 'dart:io';
+import 'load.dart';
 
 class ScanDocumentPage extends StatefulWidget {
   const ScanDocumentPage({super.key});
@@ -15,6 +18,7 @@ class _ScanDocumentPageState extends State<ScanDocumentPage> {
   CameraController? _cameraController;
   bool _isFlashOn = false;
   bool _isCameraInitialized = false;
+  bool _isProcessing = false; // Флаг для отображения процесса
   late List<CameraDescription> cameras;
 
   @override
@@ -24,16 +28,21 @@ class _ScanDocumentPageState extends State<ScanDocumentPage> {
   }
 
   Future<void> _initializeCamera() async {
-    cameras = await availableCameras();
-    _cameraController = CameraController(
-      cameras.first,
-      ResolutionPreset.medium,
-      enableAudio: false,
-    );
-    await _cameraController!.initialize();
-    setState(() {
-      _isCameraInitialized = true;
-    });
+    try {
+      cameras = await availableCameras();
+      _cameraController = CameraController(
+        cameras.first,
+        ResolutionPreset.medium,
+        enableAudio: false,
+      );
+      await _cameraController!.initialize();
+      setState(() {
+        _isCameraInitialized = true;
+      });
+      print("Камера инициализирована успешно.");
+    } catch (e) {
+      print("Ошибка инициализации камеры: $e");
+    }
   }
 
   @override
@@ -53,11 +62,70 @@ class _ScanDocumentPageState extends State<ScanDocumentPage> {
 
   Future<void> _captureAndAnalyze(BuildContext context) async {
     try {
-      final image = await _cameraController!.takePicture();
+      // Показ страницы загрузки
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => const LoadPage(),
+        ),
+      );
+
+      print("Начало процесса фотографирования...");
+      final XFile image = await _cameraController!.takePicture();
+      print("Фотография сделана: ${image.path}");
+
+      // Отправка на сервер для анализа
       final result = await ApiService.analyzeImage(image.path);
+      print("Распознавание завершено, результат получен.");
+
+      // Закрытие страницы загрузки перед показом результата
+      Navigator.pop(context);
       _navigateToResult(context, result);
     } catch (e) {
-      print("Ошибка при съемке: $e");
+      print("Ошибка при съемке или распознавании: $e");
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Ошибка: $e")),
+      );
+
+      // Закрытие страницы загрузки в случае ошибки
+      Navigator.pop(context);
+    }
+  }
+
+  Future<void> _pickImageFromGallery(BuildContext context) async {
+    try {
+      // Показ страницы загрузки
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => const LoadPage(),
+        ),
+      );
+
+      print("Открытие галереи...");
+      final pickedFile = await ImagePicker().pickImage(source: ImageSource.gallery);
+      if (pickedFile != null) {
+        print("Изображение выбрано: ${pickedFile.path}");
+
+        // Отправка на сервер для анализа
+        final result = await ApiService.analyzeImage(pickedFile.path);
+        print("Распознавание завершено, результат получен.");
+
+        // Закрытие страницы загрузки перед показом результата
+        Navigator.pop(context);
+        _navigateToResult(context, result);
+      } else {
+        print("Изображение не выбрано.");
+        Navigator.pop(context);
+      }
+    } catch (e) {
+      print("Ошибка при выборе изображения: $e");
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Ошибка: $e")),
+      );
+
+      // Закрытие страницы загрузки в случае ошибки
+      Navigator.pop(context);
     }
   }
 
@@ -114,6 +182,19 @@ class _ScanDocumentPageState extends State<ScanDocumentPage> {
                 : const Center(child: CircularProgressIndicator()),
           ),
 
+          // Индикатор загрузки поверх камеры
+          if (_isProcessing)
+            Positioned.fill(
+              child: Container(
+                color: Colors.black.withOpacity(0.5),
+                child: const Center(
+                  child: CircularProgressIndicator(
+                    valueColor: AlwaysStoppedAnimation<Color>(Colors.red),
+                  ),
+                ),
+              ),
+            ),
+
           // Рамка сканирования
           Align(
             alignment: const Alignment(0, -0.3),
@@ -168,8 +249,8 @@ class _ScanDocumentPageState extends State<ScanDocumentPage> {
                     Material(
                       color: Colors.transparent,
                       child: InkWell(
-                        onTap: () {
-                          // Логика загрузки из галереи
+                        onTap: () async {
+                          await _pickImageFromGallery(context);
                         },
                         borderRadius: BorderRadius.circular(20),
                         splashColor: Colors.white.withOpacity(0.3),
