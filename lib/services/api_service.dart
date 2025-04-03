@@ -1,11 +1,11 @@
-import 'dart:convert';
-import 'dart:io';
-import 'package:http/http.dart' as http;
-import 'package:mime/mime.dart';
-import 'package:http_parser/http_parser.dart';
+import 'dart:convert'; // Для работы с JSON
+import 'dart:io'; // Для работы с файлами
+import 'package:http/http.dart' as http; // Для выполнения HTTP-запросов
+import 'package:mime/mime.dart'; // Для определения MIME-типа
+import 'package:http_parser/http_parser.dart'; // Для работы с MediaType
 
 class ApiService {
-  static const String _baseUrl = "http://localhost:8000"; // Android emulator
+  static const String _baseUrl = "http://localhost:8000"; // Локальный сервер через ADB
 
   static Future<String> analyzeText(String text) async {
     final url = Uri.parse("$_baseUrl/analyze");
@@ -42,7 +42,7 @@ class ApiService {
 
       if (response.statusCode == 200) {
         final responseData = await http.Response.fromStream(response);
-        final data = jsonDecode(responseData.body);
+        final data = jsonDecode(utf8.decode(responseData.bodyBytes));  // Используйте utf8.decode
         return data['result'] ?? "Нет результата";
       } else {
         return "Ошибка сервера: ${response.statusCode}";
@@ -51,4 +51,5 @@ class ApiService {
       return "Ошибка при распознавании изображения: $e";
     }
   }
+
 }

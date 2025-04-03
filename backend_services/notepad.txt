@@ -1,3 +1,5 @@
 Get-Process -Name python
 Get-Process -Name python | Stop-Process -Force
 uvicorn main:app --reload
+uvicorn main:app --reload --host 0.0.0.0 --port 8000
+
