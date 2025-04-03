@@ -1,8 +1,10 @@
 import g4f
+from text_formatter import TextFormatter
 
 class LLMConnector:
     def __init__(self):
         self.client = g4f.Client()
+        self.formatter = TextFormatter()
 
     def get_recommendation(self, text: str, doc_type: str, entities: list) -> str:
         try:
@@ -25,7 +27,8 @@ class LLMConnector:
 
             # Проверяем наличие ответа
             if response and isinstance(response, str):
-                return response.strip()
+                formatted_response = self.formatter.format_text(response.strip())
+                return formatted_response
             else:
                 return "Ошибка: Пустой или некорректный ответ от модели."
         except Exception as e:

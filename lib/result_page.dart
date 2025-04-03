@@ -51,21 +51,86 @@ class _ResultPageState extends State<ResultPage> {
       body: Padding(
         padding: const EdgeInsets.all(20.0),
         child: SingleChildScrollView(
-          child: TextField(
-            controller: _textController,
-            maxLines: null,
-            readOnly: true,
-            decoration: InputDecoration(
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-                borderSide: const BorderSide(color: Colors.grey),
-              ),
-            ),
+          child: SelectableText.rich(
+            _formatAnalyzedText(widget.analyzedText),
           ),
         ),
       ),
       bottomNavigationBar: _buildBottomPanel(context),
     );
+  }
+
+  TextSpan _formatAnalyzedText(String text) {
+    List<TextSpan> spans = [];
+    bool isRecommendationBlock = false;
+
+    for (String line in text.split('\n')) {
+      if (line.startsWith('💬 Рекомендация от GPT-4o-mini:')) {
+        // Начало блока рекомендаций
+        spans.add(
+          const TextSpan(
+            text: '\n💬 Рекомендация от GPT-4o-mini:\n',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.black),
+          ),
+        );
+        isRecommendationBlock = true;
+        continue;
+      }
+
+      if (isRecommendationBlock) {
+        // Форматируем текст рекомендаций
+        if (line.startsWith('<h2>') && line.endsWith('</h2>')) {
+          // Заголовок
+          spans.add(
+            TextSpan(
+              text: '\n${line.replaceAll('<h2>', '').replaceAll('</h2>', '')}\n',
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.black),
+            ),
+          );
+        } else if (line.startsWith('• ')) {
+          // Маркированный список
+          spans.add(
+            TextSpan(
+              text: '${line}\n',
+              style: const TextStyle(fontSize: 16, color: Colors.black),
+            ),
+          );
+        } else if (line.contains('<b>') && line.contains('</b>')) {
+          // Жирный текст
+          spans.add(
+            TextSpan(
+              text: '${line.replaceAll('<b>', '').replaceAll('</b>', '')}\n',
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.black),
+            ),
+          );
+        } else if (line.startsWith('<h2>')) {
+          // Обычный текст внутри рекомендаций
+          spans.add(
+            TextSpan(
+              text: '${line.replaceAll('<h2>', '').replaceAll('</h2>', '')}\n',
+              style: const TextStyle(fontSize: 16, color: Colors.black),
+            ),
+          );
+        } else {
+          // Обычный текст
+          spans.add(
+            TextSpan(
+              text: '$line\n',
+              style: const TextStyle(fontSize: 16, color: Colors.black),
+            ),
+          );
+        }
+      } else {
+        // Обычный текст вне рекомендаций
+        spans.add(
+          TextSpan(
+            text: '$line\n',
+            style: const TextStyle(fontSize: 16, color: Colors.black),
+          ),
+        );
+      }
+    }
+    return TextSpan(children: spans);
   }
 
   Widget _buildBottomPanel(BuildContext context) {
