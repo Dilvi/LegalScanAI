@@ -3,6 +3,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'check_text_page.dart';
 import 'profile_page.dart'; // Страница профиля
 import 'chat_page.dart';
+import 'scan_document_page.dart';
 
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
@@ -135,7 +136,12 @@ class HomePage extends StatelessWidget {
                   label: "Сканировать\nдокумент",
                   iconPath: "assets/scan_doc_icon.svg",
                   onTap: () {
-                    // TODO
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const ScanDocumentPage(),
+                      ),
+                    );
                   },
                 ),
                 _buildIconButton(
