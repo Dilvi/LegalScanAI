@@ -1,8 +1,74 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:camera/camera.dart';
+import 'result_page.dart';
+import '../services/api_service.dart';
 
-class ScanDocumentPage extends StatelessWidget {
+class ScanDocumentPage extends StatefulWidget {
   const ScanDocumentPage({super.key});
+
+  @override
+  _ScanDocumentPageState createState() => _ScanDocumentPageState();
+}
+
+class _ScanDocumentPageState extends State<ScanDocumentPage> {
+  CameraController? _cameraController;
+  bool _isFlashOn = false;
+  bool _isCameraInitialized = false;
+  late List<CameraDescription> cameras;
+
+  @override
+  void initState() {
+    super.initState();
+    _initializeCamera();
+  }
+
+  Future<void> _initializeCamera() async {
+    cameras = await availableCameras();
+    _cameraController = CameraController(
+      cameras.first,
+      ResolutionPreset.medium,
+      enableAudio: false,
+    );
+    await _cameraController!.initialize();
+    setState(() {
+      _isCameraInitialized = true;
+    });
+  }
+
+  @override
+  void dispose() {
+    _cameraController?.dispose();
+    super.dispose();
+  }
+
+  void _toggleFlash() {
+    setState(() {
+      _isFlashOn = !_isFlashOn;
+    });
+    _cameraController?.setFlashMode(
+      _isFlashOn ? FlashMode.torch : FlashMode.off,
+    );
+  }
+
+  Future<void> _captureAndAnalyze(BuildContext context) async {
+    try {
+      final image = await _cameraController!.takePicture();
+      final result = await ApiService.analyzeImage(image.path);
+      _navigateToResult(context, result);
+    } catch (e) {
+      print("Ошибка при съемке: $e");
+    }
+  }
+
+  void _navigateToResult(BuildContext context, String result) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ResultPage(analyzedText: result),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -28,32 +94,29 @@ class ScanDocumentPage extends StatelessWidget {
         centerTitle: true,
         actions: [
           IconButton(
-            icon: SvgPicture.asset("assets/flash_button.svg", width: 30, height: 30),
-            onPressed: () {
-              // Логика включения/выключения вспышки
-            },
+            icon: SvgPicture.asset(
+              "assets/flash_button.svg",
+              width: 30,
+              height: 30,
+              color: _isFlashOn ? Colors.yellow : Colors.white,
+            ),
+            onPressed: _toggleFlash,
           ),
         ],
       ),
       backgroundColor: Colors.black,
       body: Stack(
         children: [
-          // Камера (пока просто контейнер с надписью)
+          // Камера
           Positioned.fill(
-            child: Container(
-              color: Colors.black,
-              child: const Center(
-                child: Text(
-                  "Камера",
-                  style: TextStyle(color: Colors.white, fontSize: 20),
-                ),
-              ),
-            ),
+            child: _isCameraInitialized
+                ? CameraPreview(_cameraController!)
+                : const Center(child: CircularProgressIndicator()),
           ),
 
-          // Рамка сканирования (поднята выше и по центру)
+          // Рамка сканирования
           Align(
-            alignment: const Alignment(0, -0.3), // Поднята чуть выше центра
+            alignment: const Alignment(0, -0.3),
             child: SvgPicture.asset(
               "assets/photo_frame.svg",
               width: 450,
@@ -76,38 +139,47 @@ class ScanDocumentPage extends StatelessWidget {
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly, // Центровка с равным расстоянием
-                  crossAxisAlignment: CrossAxisAlignment.center, // Выравнивание по центру по вертикали
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    // Пустой контейнер для балансировки
                     const SizedBox(width: 60),
 
-                    // Кнопка фотографирования (по центру, немного выше)
-                    GestureDetector(
-                      onTap: () {
-                        // Логика для фотографирования
-                      },
-                      child: Padding(
-                        padding: const EdgeInsets.only(bottom: 25), // Поднять кнопку выше
-                        child: SvgPicture.asset(
-                          "assets/photo_button.svg",
-                          width: 100,
-                          height: 100,
+                    // Кнопка фотографирования
+                    Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: () async {
+                          await _captureAndAnalyze(context);
+                        },
+                        borderRadius: BorderRadius.circular(50),
+                        splashColor: Colors.white.withOpacity(0.3),
+                        child: Padding(
+                          padding: const EdgeInsets.only(bottom: 25),
+                          child: SvgPicture.asset(
+                            "assets/photo_button.svg",
+                            width: 100,
+                            height: 100,
+                          ),
                         ),
                       ),
                     ),
 
-                    // Кнопка галереи (правее от центра)
-                    GestureDetector(
-                      onTap: () {
-                        // Логика загрузки из галереи
-                      },
-                      child: Padding(
-                        padding: const EdgeInsets.only(bottom: 20), // Поднять кнопку выше
-                        child: Image.asset(
-                          "assets/gallery_button.png",
-                          width: 70,
-                          height: 70,
+                    // Кнопка галереи
+                    Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: () {
+                          // Логика загрузки из галереи
+                        },
+                        borderRadius: BorderRadius.circular(20),
+                        splashColor: Colors.white.withOpacity(0.3),
+                        child: Padding(
+                          padding: const EdgeInsets.only(bottom: 20),
+                          child: Image.asset(
+                            "assets/gallery_button.png",
+                            width: 70,
+                            height: 70,
+                          ),
                         ),
                       ),
                     ),
