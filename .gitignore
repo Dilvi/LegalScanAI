@@ -43,4 +43,5 @@ app.*.map.json
 /android/app/release
 # Исключаем локальную модель
 backend_services/model_doc_type/
+backend_services/uploads/
 

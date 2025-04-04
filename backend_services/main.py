@@ -5,6 +5,7 @@ from ner_extractor import NERExtractor
 from anonymizer import Anonymizer
 from llm_connector import LLMConnector
 from image_processor import ImageProcessor
+from chat_service import LegalMindChat
 
 app = FastAPI()
 
@@ -67,3 +68,17 @@ async def analyze_image(file: UploadFile = File(...)):
         return JSONResponse(content={"result": result["result"]}, media_type="application/json; charset=utf-8")
     except Exception as e:
         return JSONResponse(content={"result": f"Ошибка: {str(e)}"}, media_type="application/json; charset=utf-8")
+
+# Создаем экземпляр LegalMind
+legal_mind = LegalMindChat()
+
+class Message(BaseModel):
+    text: str
+
+@app.post("/chat")
+async def chat(input: Message):
+    try:
+        response = legal_mind.get_response(input.text)
+        return {"response": response}
+    except Exception as e:
+        return {"error": str(e)}

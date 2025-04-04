@@ -7,6 +7,7 @@ import 'package:http_parser/http_parser.dart'; // Для работы с MediaTy
 class ApiService {
   static const String _baseUrl = "http://localhost:8000"; // Локальный сервер через ADB
 
+  // 🔍 Анализ текста
   static Future<String> analyzeText(String text) async {
     final url = Uri.parse("$_baseUrl/analyze");
     try {
@@ -27,6 +28,7 @@ class ApiService {
     }
   }
 
+  // 📷 Анализ изображения
   static Future<String> analyzeImage(String imagePath) async {
     final url = Uri.parse("$_baseUrl/analyze-image");
     try {
@@ -42,7 +44,7 @@ class ApiService {
 
       if (response.statusCode == 200) {
         final responseData = await http.Response.fromStream(response);
-        final data = jsonDecode(utf8.decode(responseData.bodyBytes));  // Используйте utf8.decode
+        final data = jsonDecode(utf8.decode(responseData.bodyBytes)); // Используем utf8.decode
         return data['result'] ?? "Нет результата";
       } else {
         return "Ошибка сервера: ${response.statusCode}";
@@ -52,4 +54,24 @@ class ApiService {
     }
   }
 
+  // 💬 Отправка сообщения в чат LegalMind
+  static Future<String> sendMessage(String text) async {
+    final url = Uri.parse("$_baseUrl/chat");
+    try {
+      final response = await http.post(
+        url,
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({"text": text}),
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(utf8.decode(response.bodyBytes));
+        return data['response']?.toString() ?? "Нет ответа"; // Исправлено
+      } else {
+        return "Ошибка сервера: ${response.statusCode}";
+      }
+    } catch (e) {
+      return "Ошибка подключения: $e";
+    }
+  }
 }
