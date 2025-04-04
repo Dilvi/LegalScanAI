@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_markdown/flutter_markdown.dart';
+import '../services/api_service.dart';
+import 'package:flutter/services.dart'; // Для копирования в буфер обмена
 
 class ChatPage extends StatefulWidget {
   const ChatPage({super.key});
@@ -10,20 +13,25 @@ class ChatPage extends StatefulWidget {
 class _ChatPageState extends State<ChatPage> {
   final TextEditingController _controller = TextEditingController();
   final List<Map<String, String>> _messages = []; // {'role': 'user'/'bot', 'text': '...'}
+  bool _isLoading = false; // Флаг для отображения индикатора
 
-  void _sendMessage(String text) {
+  void _sendMessage(String text) async {
     if (text.trim().isEmpty) return;
 
     setState(() {
+      // Добавляем сообщение пользователя
       _messages.add({'role': 'user', 'text': text});
-      _messages.add({'role': 'bot', 'text': _getBotReply(text)});
-      _controller.clear();
+      _controller.clear(); // Очистка поля после отправки
+      _isLoading = true; // Включаем индикатор загрузки
     });
-  }
 
-  String _getBotReply(String userInput) {
-    // Заглушка. Здесь будет подключение к LegalMind.
-    return 'Это предварительный ответ от LegalMind по теме: "$userInput"';
+    // Отправляем сообщение на сервер через API
+    final botReply = await ApiService.sendMessage(text);
+
+    setState(() {
+      _isLoading = false; // Отключаем индикатор загрузки
+      _messages.add({'role': 'bot', 'text': botReply});
+    });
   }
 
   @override
@@ -70,27 +78,78 @@ class _ChatPageState extends State<ChatPage> {
             child: ListView.builder(
               reverse: true,
               padding: EdgeInsets.all(16 * scale),
-              itemCount: _messages.length,
+              itemCount: _messages.length + (_isLoading ? 1 : 0), // Учитываем индикатор
               itemBuilder: (context, index) {
-                final message = _messages[_messages.length - 1 - index];
+                if (_isLoading && index == 0) {
+                  // Индикатор загрузки
+                  return Align(
+                    alignment: Alignment.centerLeft,
+                    child: Container(
+                      margin: EdgeInsets.symmetric(vertical: 6 * scale),
+                      padding: EdgeInsets.symmetric(horizontal: 12 * scale, vertical: 10 * scale),
+                      constraints: BoxConstraints(maxWidth: 280 * scale),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF5F5F5),
+                        border: Border.all(color: const Color(0xFF800000)),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        children: [
+                          SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: Image.asset("assets/load.gif"),
+                          ),
+                          const SizedBox(width: 8),
+                          const Text(
+                            'Генерируем ответ...',
+                            style: TextStyle(
+                              fontFamily: 'DM Sans',
+                              fontSize: 14,
+                              color: Colors.black,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                }
+
+                final message = _messages[_messages.length - 1 - index + (_isLoading ? 1 : 0)];
                 final isUser = message['role'] == 'user';
                 return Align(
                   alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
-                  child: Container(
-                    margin: EdgeInsets.symmetric(vertical: 6 * scale),
-                    padding: EdgeInsets.symmetric(horizontal: 12 * scale, vertical: 10 * scale),
-                    constraints: BoxConstraints(maxWidth: 280 * scale),
-                    decoration: BoxDecoration(
-                      color: isUser ? const Color(0xFFE6F0FF) : const Color(0xFFF5F5F5),
-                      border: isUser ? null : Border.all(color: const Color(0xFF800000)),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      message['text']!,
-                      style: TextStyle(
-                        color: Colors.black,
-                        fontFamily: 'DM Sans',
-                        fontSize: 14 * scale,
+                  child: GestureDetector(
+                    onLongPress: () {
+                      Clipboard.setData(ClipboardData(text: message['text'] ?? ''));
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Сообщение скопировано')),
+                      );
+                    },
+                    child: Container(
+                      margin: EdgeInsets.symmetric(vertical: 6 * scale),
+                      padding: EdgeInsets.symmetric(horizontal: 12 * scale, vertical: 10 * scale),
+                      constraints: BoxConstraints(maxWidth: 280 * scale),
+                      decoration: BoxDecoration(
+                        color: isUser ? const Color(0xFFE6F0FF) : const Color(0xFFF5F5F5),
+                        border: isUser ? null : Border.all(color: const Color(0xFF800000)),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: MarkdownBody(
+                        data: message['text']!,
+                        styleSheet: MarkdownStyleSheet(
+                          p: TextStyle(
+                            fontSize: 14 * scale,
+                            color: Colors.black,
+                            fontFamily: 'DM Sans',
+                          ),
+                          strong: TextStyle(
+                            fontSize: 14 * scale,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black,
+                            fontFamily: 'DM Sans',
+                          ),
+                        ),
                       ),
                     ),
                   ),
@@ -98,7 +157,6 @@ class _ChatPageState extends State<ChatPage> {
               },
             ),
           ),
-          // Быстрые кнопки
           SizedBox(
             height: 42 * scale,
             child: ListView(
@@ -112,7 +170,6 @@ class _ChatPageState extends State<ChatPage> {
               ],
             ),
           ),
-          // Поле ввода
           SafeArea(
             child: Padding(
               padding: EdgeInsets.symmetric(horizontal: 12 * scale, vertical: 10 * scale),
