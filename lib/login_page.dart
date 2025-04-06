@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'home_page.dart';
 import 'register_page.dart';
+import 'services/auth_service.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -19,7 +22,19 @@ class _LoginPageState extends State<LoginPage> {
     final email = _emailController.text.trim();
     final password = _passwordController.text.trim();
 
-
+    try {
+      User? user = await AuthService().signIn(email, password);
+      if (user != null) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const HomePage()),
+        );
+      } else {
+        _showError("Ошибка входа. Проверьте данные.");
+      }
+    } catch (e) {
+      _showError("Ошибка: ${e.toString()}");
+    }
   }
 
   void _showError(String message) {

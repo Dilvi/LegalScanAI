@@ -37,6 +37,9 @@ dependencies:
   flutter_html: ^3.0.0
   flutter_markdown: ^0.7.1
   smooth_page_indicator: ^1.0.0
+  firebase_core: ^2.13.0
+  firebase_auth: ^4.7.0
+  cloud_firestore: ^4.12.0
 
 
 
