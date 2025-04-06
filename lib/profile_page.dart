@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
-import 'security_page.dart'; // Импорт страницы безопасности
-import 'personal_data_page.dart'; // Импорт страницы личных данных
+import 'package:firebase_auth/firebase_auth.dart';  // 🔥 Добавлен импорт FirebaseAuth
+import 'login_page.dart';  // Импорт страницы входа
+import 'security_page.dart';
+import 'personal_data_page.dart';
 import 'notifications_page.dart';
 import 'save_route_page.dart';
 import 'subscription_page.dart';
@@ -26,6 +28,25 @@ class _ProfilePageState extends State<ProfilePage> {
       setState(() {
         _avatarImage = File(picked.path);
       });
+    }
+  }
+
+  // 🔥 Метод выхода из аккаунта
+  Future<void> _signOut() async {
+    try {
+      await FirebaseAuth.instance.signOut();
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (context) => const LoginPage()),
+            (route) => false,
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("Ошибка выхода: $e"),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
 
@@ -168,9 +189,7 @@ class _ProfilePageState extends State<ProfilePage> {
             width: 327,
             height: 52,
             child: ElevatedButton(
-              onPressed: () {
-                // TODO: выход из аккаунта
-              },
+              onPressed: _signOut,  // 🔥 Выход из аккаунта
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.white,
                 foregroundColor: const Color(0xFF800000),

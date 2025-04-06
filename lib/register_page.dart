@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'login_page.dart';
+import 'services/auth_service.dart';
+import 'services/firestore_service.dart';
+import 'home_page.dart';
 
 class RegisterPage extends StatefulWidget {
   const RegisterPage({super.key});
@@ -21,8 +25,30 @@ class _RegisterPageState extends State<RegisterPage> {
     final email = _emailController.text.trim();
     final password = _passwordController.text.trim();
 
-
+    try {
+      User? user = await AuthService().register(email, password);
+      if (user != null) {
+        print("Пользователь успешно зарегистрирован: ${user.email}");
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const HomePage()),
+        );
+      } else {
+        _showError("Не удалось создать аккаунт. Проверьте данные.");
+      }
+    } catch (e) {
+      _showError("Ошибка при регистрации: ${e.toString()}");
+    }
   }
+
+
+
+
+
+
+
+
+
 
   void _showError(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
