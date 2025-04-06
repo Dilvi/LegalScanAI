@@ -40,7 +40,7 @@ async def analyze_text(input: TextInput):
 
     # Получение рекомендации от GPT-4o-mini
     recommendation = llm_connector.get_recommendation(anonymized_text, doc_type, entities)
-    recommendation_block = f"\n\n💬 Рекомендация от GPT-4o-mini:\n{recommendation}"
+    recommendation_block = f"\n\n💬 Рекомендация от LegalScanAI:\n{recommendation}"
 
     full_result = classification_result + entities_text + anonymized_text_block + recommendation_block
     return {"result": full_result}
