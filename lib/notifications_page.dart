@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'services/notification_service.dart';
 
 class NotificationsPage extends StatefulWidget {
   const NotificationsPage({super.key});
@@ -13,6 +15,54 @@ class _NotificationsPageState extends State<NotificationsPage> {
   bool legalMindTips = false;
   bool appNews = true;
   bool emailUpdates = false;
+
+  @override
+  void initState() {
+    super.initState();
+    NotificationService.init();
+    _loadPreferences();
+  }
+
+  Future<void> _loadPreferences() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      resultNotifications = prefs.getBool('resultNotifications') ?? true;
+      legalMindTips = prefs.getBool('legalMindTips') ?? false;
+      appNews = prefs.getBool('appNews') ?? true;
+      emailUpdates = prefs.getBool('emailUpdates') ?? false;
+    });
+  }
+
+  Future<void> _savePreference(String key, bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(key, value);
+  }
+
+  void _onNotificationChange(String key, bool value) {
+    setState(() {
+      switch (key) {
+        case 'resultNotifications':
+          resultNotifications = value;
+          break;
+        case 'legalMindTips':
+          legalMindTips = value;
+          break;
+        case 'appNews':
+          appNews = value;
+          break;
+        case 'emailUpdates':
+          emailUpdates = value;
+          break;
+      }
+      _savePreference(key, value);
+      if (value) {
+        NotificationService.showNotification(
+          'Уведомления включены',
+          'Теперь вы будете получать уведомления: $key',
+        );
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -51,7 +101,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
               emoji: '📝',
               title: 'Уведомления о новых результатах анализа',
               value: resultNotifications,
-              onChanged: (val) => setState(() => resultNotifications = val),
+              onChanged: (val) => _onNotificationChange('resultNotifications', val),
               scale: scale,
             ),
             const SizedBox(height: 12),
@@ -59,7 +109,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
               emoji: '🤖',
               title: 'Советы от LegalMind',
               value: legalMindTips,
-              onChanged: (val) => setState(() => legalMindTips = val),
+              onChanged: (val) => _onNotificationChange('legalMindTips', val),
               scale: scale,
             ),
             const SizedBox(height: 12),
@@ -67,7 +117,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
               emoji: '📰',
               title: 'Новости и обновления приложения',
               value: appNews,
-              onChanged: (val) => setState(() => appNews = val),
+              onChanged: (val) => _onNotificationChange('appNews', val),
               scale: scale,
             ),
             const SizedBox(height: 12),
@@ -75,7 +125,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
               emoji: '📩',
               title: 'Email-рассылка',
               value: emailUpdates,
-              onChanged: (val) => setState(() => emailUpdates = val),
+              onChanged: (val) => _onNotificationChange('emailUpdates', val),
               scale: scale,
             ),
           ],
@@ -113,6 +163,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
                 Expanded(
                   child: Text(
                     title,
+                    overflow: TextOverflow.ellipsis,  // Добавлено для предотвращения переполнения
                     style: TextStyle(
                       fontFamily: 'DM Sans',
                       fontSize: 14 * scale,

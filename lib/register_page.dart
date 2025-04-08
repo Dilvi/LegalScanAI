@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'login_page.dart';
 import 'services/auth_service.dart';
-import 'services/firestore_service.dart';
 import 'home_page.dart';
 
 class RegisterPage extends StatefulWidget {
@@ -24,9 +23,10 @@ class _RegisterPageState extends State<RegisterPage> {
   void _register() async {
     final email = _emailController.text.trim();
     final password = _passwordController.text.trim();
+    final phone = _phoneController.text.trim();
 
     try {
-      User? user = await AuthService().register(email, password);
+      User? user = await AuthService().register(email, password, phone);
       if (user != null) {
         print("Пользователь успешно зарегистрирован: ${user.email}");
         Navigator.pushReplacement(
@@ -40,6 +40,7 @@ class _RegisterPageState extends State<RegisterPage> {
       _showError("Ошибка при регистрации: ${e.toString()}");
     }
   }
+
 
 
 
