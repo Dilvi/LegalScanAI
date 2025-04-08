@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
-import 'package:firebase_auth/firebase_auth.dart';  // 🔥 Добавлен импорт FirebaseAuth
-import 'login_page.dart';  // Импорт страницы входа
+import 'package:firebase_auth/firebase_auth.dart';
+import 'login_page.dart';
 import 'security_page.dart';
 import 'personal_data_page.dart';
 import 'notifications_page.dart';
@@ -19,6 +19,20 @@ class ProfilePage extends StatefulWidget {
 
 class _ProfilePageState extends State<ProfilePage> {
   File? _avatarImage;
+  bool _isLoggedIn = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkLoginStatus();
+  }
+
+  Future<void> _checkLoginStatus() async {
+    User? user = FirebaseAuth.instance.currentUser;
+    setState(() {
+      _isLoggedIn = user != null;
+    });
+  }
 
   Future<void> _pickAvatarImage() async {
     final picker = ImagePicker();
@@ -31,10 +45,12 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
-  // 🔥 Метод выхода из аккаунта
   Future<void> _signOut() async {
     try {
       await FirebaseAuth.instance.signOut();
+      setState(() {
+        _isLoggedIn = false;
+      });
       Navigator.pushAndRemoveUntil(
         context,
         MaterialPageRoute(builder: (context) => const LoginPage()),
@@ -83,7 +99,7 @@ class _ProfilePageState extends State<ProfilePage> {
                       color: Colors.black,
                     ),
                   ),
-                  SizedBox(width: 48 * scale), // для выравнивания
+                  SizedBox(width: 48 * scale),
                 ],
               ),
             ),
@@ -92,7 +108,7 @@ class _ProfilePageState extends State<ProfilePage> {
 
             // Аватарка
             GestureDetector(
-              onTap: _pickAvatarImage,
+              onTap: _isLoggedIn ? _pickAvatarImage : null,
               child: CircleAvatar(
                 radius: 40 * scale,
                 backgroundColor: const Color(0xFF800000),
@@ -106,69 +122,15 @@ class _ProfilePageState extends State<ProfilePage> {
             SizedBox(height: 32 * scale),
 
             // Кнопки профиля
-            _buildProfileButton(
-              "Личные данные",
-              SvgPicture.asset('assets/arrow-right.svg', width: 20 * scale, height: 20 * scale),
-              scale,
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const PersonalDataPage()),
-                );
-              },
-            ),
+            _buildProfileButton("Личные данные", PersonalDataPage(), scale),
             SizedBox(height: 12 * scale),
-
-            _buildProfileButton(
-              "Безопасность и вход",
-              SvgPicture.asset('assets/arrow-right.svg', width: 20 * scale, height: 20 * scale),
-              scale,
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const SecurityPage()),
-                );
-              },
-            ),
+            _buildProfileButton("Безопасность и вход", SecurityPage(), scale),
             SizedBox(height: 12 * scale),
-
-            _buildProfileButton(
-              "Уведомления",
-              SvgPicture.asset('assets/arrow-right.svg', width: 20 * scale, height: 20 * scale),
-              scale,
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const NotificationsPage()),
-                );
-              },
-            ),
+            _buildProfileButton("Уведомления", NotificationsPage(), scale),
             SizedBox(height: 12 * scale),
-
-            _buildProfileButton(
-              "Путь сохранения",
-              SvgPicture.asset('assets/arrow-right.svg', width: 20 * scale, height: 20 * scale),
-              scale,
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const SaveRoutePage()),
-                );
-              },
-            ),
+            _buildProfileButton("Путь сохранения", SaveRoutePage(), scale),
             SizedBox(height: 12 * scale),
-
-            _buildProfileButton(
-              "Подключить PRO версию",
-              SvgPicture.asset('assets/arrow-right.svg', width: 20 * scale, height: 20 * scale),
-              scale,
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const SubscriptionPage()),
-                );
-              },
-            ),
+            _buildProfileButton("Подключить PRO версию", SubscriptionPage(), scale),
           ],
         ),
       ),
@@ -189,7 +151,12 @@ class _ProfilePageState extends State<ProfilePage> {
             width: 327,
             height: 52,
             child: ElevatedButton(
-              onPressed: _signOut,  // 🔥 Выход из аккаунта
+              onPressed: _isLoggedIn ? _signOut : () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const LoginPage()),
+                );
+              },
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.white,
                 foregroundColor: const Color(0xFF800000),
@@ -197,9 +164,9 @@ class _ProfilePageState extends State<ProfilePage> {
                   borderRadius: BorderRadius.circular(12),
                 ),
               ),
-              child: const Text(
-                "Выйти из аккаунта",
-                style: TextStyle(
+              child: Text(
+                _isLoggedIn ? "Выйти из аккаунта" : "Войти в аккаунт",
+                style: const TextStyle(
                   fontFamily: 'DM Sans',
                   fontSize: 14,
                   fontWeight: FontWeight.bold,
@@ -212,13 +179,14 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  // Метод создания кнопок профиля
-  Widget _buildProfileButton(String label, Widget icon, double scale, {VoidCallback? onTap}) {
+  Widget _buildProfileButton(String label, Widget page, double scale) {
     return Material(
-      color: Colors.transparent,
+      color: _isLoggedIn ? Colors.white : Colors.grey[300],
       borderRadius: BorderRadius.circular(10 * scale),
       child: InkWell(
-        onTap: onTap ?? () => debugPrint('$label tapped'),
+        onTap: _isLoggedIn
+            ? () => Navigator.push(context, MaterialPageRoute(builder: (context) => page))
+            : null,
         borderRadius: BorderRadius.circular(10 * scale),
         splashColor: const Color(0x22800000),
         highlightColor: Colors.transparent,
@@ -226,7 +194,7 @@ class _ProfilePageState extends State<ProfilePage> {
           width: 318 * scale,
           height: 52,
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: _isLoggedIn ? Colors.white : Colors.grey[300],
             borderRadius: BorderRadius.circular(10 * scale),
             border: Border.all(color: const Color(0xFF800000), width: 1),
           ),
@@ -239,10 +207,15 @@ class _ProfilePageState extends State<ProfilePage> {
                 style: TextStyle(
                   fontFamily: 'DM Sans',
                   fontSize: 14 * scale,
-                  color: Colors.black,
+                  color: _isLoggedIn ? Colors.black : Colors.grey,
                 ),
               ),
-              icon,
+              SvgPicture.asset(
+                'assets/arrow-right.svg',
+                width: 20 * scale,
+                height: 20 * scale,
+                color: _isLoggedIn ? Colors.black : Colors.grey,
+              ),
             ],
           ),
         ),

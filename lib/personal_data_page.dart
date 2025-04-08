@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class PersonalDataPage extends StatefulWidget {
   const PersonalDataPage({super.key});
@@ -14,18 +16,102 @@ class _PersonalDataPageState extends State<PersonalDataPage> {
   final TextEditingController _surnameController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _phoneController = TextEditingController();
+  bool _isSaveButtonEnabled = false;
+
+  // Хранение изначальных данных
+  String _initialName = '';
+  String _initialSurname = '';
+  String _initialEmail = '';
+  String _initialPhone = '';
 
   @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
+  void initState() {
+    super.initState();
+    _loadUserData();
+    _setupListeners();
+  }
 
-    // Безопасно отложенный доступ к FocusScope
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final currentFocus = FocusScope.of(context);
-      if (!currentFocus.hasPrimaryFocus && currentFocus.focusedChild != null) {
-        currentFocus.focusedChild!.unfocus();
-      }
+  void _setupListeners() {
+    _nameController.addListener(_checkIfChanged);
+    _surnameController.addListener(_checkIfChanged);
+    _emailController.addListener(_checkIfChanged);
+    _phoneController.addListener(_checkIfChanged);
+  }
+
+  void _checkIfChanged() {
+    setState(() {
+      _isSaveButtonEnabled = _nameController.text.trim() != _initialName ||
+          _surnameController.text.trim() != _initialSurname ||
+          _emailController.text.trim() != _initialEmail ||
+          _phoneController.text.trim() != _initialPhone;
     });
+  }
+
+  // Загрузка данных пользователя из Firestore
+  Future<void> _loadUserData() async {
+    try {
+      User? user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        DocumentSnapshot userDoc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .get();
+
+        if (userDoc.exists) {
+          setState(() {
+            _initialName = userDoc['name'] ?? '';
+            _initialSurname = userDoc['surname'] ?? '';
+            _initialEmail = userDoc['email'] ?? '';
+            _initialPhone = userDoc['phone'] ?? '';
+
+            _nameController.text = _initialName;
+            _surnameController.text = _initialSurname;
+            _emailController.text = _initialEmail;
+            _phoneController.text = _initialPhone;
+
+            _isSaveButtonEnabled = false;
+          });
+        }
+      }
+    } catch (e) {
+      print("Ошибка при загрузке данных: $e");
+    }
+  }
+
+  // Сохранение обновленных данных в Firestore
+  Future<void> _saveUserData() async {
+    try {
+      User? user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .update({
+          'name': _nameController.text.trim(),
+          'surname': _surnameController.text.trim(),
+          'email': _emailController.text.trim(),
+          'phone': _phoneController.text.trim(),
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Данные успешно сохранены')),
+        );
+
+        // Обновляем начальные значения после сохранения
+        setState(() {
+          _initialName = _nameController.text.trim();
+          _initialSurname = _surnameController.text.trim();
+          _initialEmail = _emailController.text.trim();
+          _initialPhone = _phoneController.text.trim();
+          _isSaveButtonEnabled = false;
+        });
+      }
+    } catch (e) {
+      print("Ошибка при сохранении данных: $e");
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Ошибка при сохранении данных')),
+      );
+    }
   }
 
   Widget _buildTextField({
@@ -50,8 +136,7 @@ class _PersonalDataPageState extends State<PersonalDataPage> {
           controller: controller,
           keyboardType: keyboardType,
           decoration: InputDecoration(
-            contentPadding:
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             hintText: hint,
             hintStyle: const TextStyle(color: Color(0xFFA0A0A0)),
             filled: true,
@@ -136,33 +221,26 @@ class _PersonalDataPageState extends State<PersonalDataPage> {
                       width: 327,
                       height: 52,
                       child: ElevatedButton(
-                        onPressed: () {
+                        onPressed: _isSaveButtonEnabled
+                            ? () {
                           if (_formKey.currentState!.validate()) {
-                            // TODO: обработка сохранения данных
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Данные сохранены')),
-                            );
+                            _saveUserData();
                           }
-                        },
+                        }
+                            : null,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF800000),
+                          backgroundColor: _isSaveButtonEnabled
+                              ? const Color(0xFF800000)
+                              : Colors.grey,
                           foregroundColor: Colors.white,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),
                         ),
-                        child: const Text(
-                          'Сохранить',
-                          style: TextStyle(
-                            fontFamily: 'DM Sans',
-                            fontWeight: FontWeight.bold,
-                            fontSize: 14,
-                          ),
-                        ),
+                        child: const Text('Сохранить'),
                       ),
                     ),
                   ),
-                  const SizedBox(height: 20),
                 ],
               ),
             ),
