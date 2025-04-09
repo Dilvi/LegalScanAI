@@ -28,7 +28,11 @@ dependencies:
   path_provider: ^2.1.5
   path: ^1.9.1
   intl: ^0.18.1
+  file_picker: ^10.0.0
+  docx_to_text: ^1.0.1
 
+  mime: any
+  http_parser: any
 dev_dependencies:
   flutter_test:
     sdk: flutter

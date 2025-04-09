@@ -1,5 +1,5 @@
 import 'dart:convert'; // Для работы с JSON
-import 'dart:io'; // Для работы с файлами
+// Для работы с файлами
 import 'package:http/http.dart' as http; // Для выполнения HTTP-запросов
 import 'package:mime/mime.dart'; // Для определения MIME-типа
 import 'package:http_parser/http_parser.dart'; // Для работы с MediaType
@@ -8,7 +8,7 @@ class ApiService {
   static const String _baseUrl = "http://localhost:8000"; // Локальный сервер через ADB
 
   // 🔍 Анализ текста
-  static Future<String> analyzeText(String text) async {
+  static Future<Map<String, dynamic>> analyzeText(String text) async {
     final url = Uri.parse("$_baseUrl/analyze");
     try {
       final response = await http.post(
@@ -19,14 +19,18 @@ class ApiService {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(utf8.decode(response.bodyBytes));
-        return data['result'] ?? "Нет результата";
+        return {
+          'result': data['result'] ?? "Нет результата",
+          'hasRisk': data['has_risk'] ?? false,
+        };
       } else {
-        return "Ошибка сервера: ${response.statusCode}";
+        throw Exception("Ошибка сервера: ${response.statusCode}");
       }
     } catch (e) {
-      return "Ошибка подключения: $e";
+      throw Exception("Ошибка подключения: $e");
     }
   }
+
 
   // 📷 Анализ изображения
   static Future<String> analyzeImage(String imagePath) async {

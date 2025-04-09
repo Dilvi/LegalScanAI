@@ -38,12 +38,20 @@ async def analyze_text(input: TextInput):
     anonymized_text = anonymizer.anonymize(input.text, entities)
     anonymized_text_block = f"\n\n🔒 Обезличенный текст:\n{anonymized_text}"
 
-    # Получение рекомендации от GPT-4o-mini
+    # Получение рекомендации
     recommendation = llm_connector.get_recommendation(anonymized_text, doc_type, entities)
     recommendation_block = f"\n\n💬 Рекомендация от LegalScanAI:\n{recommendation}"
 
     full_result = classification_result + entities_text + anonymized_text_block + recommendation_block
-    return {"result": full_result}
+
+    # ⬇️ Новое — флаг риска
+    has_risk = llm_connector.get_risk_flag()
+
+    return {
+        "result": full_result,
+        "has_risk": has_risk
+    }
+
 
 from fastapi.responses import JSONResponse
 
