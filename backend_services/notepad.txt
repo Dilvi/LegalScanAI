@@ -7,3 +7,4 @@ adb reverse tcp:8000 tcp:8000
 adb -s R3CT30187DD reverse tcp:8000 tcp:8000
 emulator-5554
 adb -s emulator-5554 reverse tcp:8000 tcp:8000
+adb uninstall com.example.legal_scan_ai
