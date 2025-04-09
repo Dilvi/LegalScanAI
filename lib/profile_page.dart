@@ -3,6 +3,8 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:path_provider/path_provider.dart';
+
 import 'login_page.dart';
 import 'security_page.dart';
 import 'personal_data_page.dart';
@@ -25,6 +27,7 @@ class _ProfilePageState extends State<ProfilePage> {
   void initState() {
     super.initState();
     _checkLoginStatus();
+    _loadAvatarImage();
   }
 
   Future<void> _checkLoginStatus() async {
@@ -34,15 +37,78 @@ class _ProfilePageState extends State<ProfilePage> {
     });
   }
 
+  Future<void> _loadAvatarImage() async {
+    final directory = await getApplicationDocumentsDirectory();
+    final path = '${directory.path}/avatar.png';
+    final file = File(path);
+    if (await file.exists()) {
+      setState(() {
+        _avatarImage = file;
+      });
+    }
+  }
+
   Future<void> _pickAvatarImage() async {
     final picker = ImagePicker();
     final picked = await picker.pickImage(source: ImageSource.gallery);
 
     if (picked != null) {
+      final directory = await getApplicationDocumentsDirectory();
+      final path = '${directory.path}/avatar.png';
+      final imageFile = File(picked.path);
+
+      // Сохраняем и перезаписываем аватарку
+      await imageFile.copy(path);
+
       setState(() {
-        _avatarImage = File(picked.path);
+        _avatarImage = File(path);
       });
     }
+  }
+
+  Future<void> _deleteAvatarImage() async {
+    final directory = await getApplicationDocumentsDirectory();
+    final path = '${directory.path}/avatar.png';
+    final file = File(path);
+    if (await file.exists()) {
+      await file.delete();
+      setState(() {
+        _avatarImage = null;
+      });
+    }
+  }
+
+  void _showAvatarOptions() {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.photo_library),
+              title: const Text("Загрузить новый аватар"),
+              onTap: () {
+                Navigator.pop(context);
+                _pickAvatarImage();
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.delete),
+              title: const Text("Удалить текущий аватар"),
+              onTap: () {
+                Navigator.pop(context);
+                _deleteAvatarImage();
+              },
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Future<void> _signOut() async {
@@ -106,9 +172,9 @@ class _ProfilePageState extends State<ProfilePage> {
 
             SizedBox(height: 32 * scale),
 
-            // Аватарка
+            // Аватарка с действиями
             GestureDetector(
-              onTap: _isLoggedIn ? _pickAvatarImage : null,
+              onTap: _isLoggedIn ? _showAvatarOptions : null,
               child: CircleAvatar(
                 radius: 40 * scale,
                 backgroundColor: const Color(0xFF800000),
@@ -151,7 +217,9 @@ class _ProfilePageState extends State<ProfilePage> {
             width: 327,
             height: 52,
             child: ElevatedButton(
-              onPressed: _isLoggedIn ? _signOut : () {
+              onPressed: _isLoggedIn
+                  ? _signOut
+                  : () {
                 Navigator.push(
                   context,
                   MaterialPageRoute(builder: (context) => const LoginPage()),

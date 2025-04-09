@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:intl/intl.dart';
 import 'result_page.dart';
 import '../services/api_service.dart';
 import 'load.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
 
 class CheckTextPage extends StatefulWidget {
   const CheckTextPage({super.key});
@@ -25,6 +28,42 @@ class _CheckTextPageState extends State<CheckTextPage> {
     textController.dispose();
     super.dispose();
   }
+
+  Future<void> _saveToRecentChecks(String result) async {
+    final prefs = await SharedPreferences.getInstance();
+
+    // Определяем тип документа
+    final RegExp typeReg = RegExp(r'📝 Тип документа: (.+?) \(уверенность');
+    final match = typeReg.firstMatch(result);
+    final docType = match != null ? match.group(1)! : 'Неизвестно';
+
+    // Определяем наличие риска
+    final hasRisk = result.contains('💬 Рекомендация от LegalScanAI:\ntrue');
+    print('🧩 Определён тип документа: $docType');
+    print('🚨 Риски обнаружены: $hasRisk');
+
+    final checkData = {
+      'type': docType,
+      'date': DateFormat('dd.MM.yyyy HH:mm').format(DateTime.now()),
+      'hasRisk': hasRisk,
+    };
+
+    print('📦 Новая запись для сохранения: $checkData');
+
+    // Получаем существующий список
+    final existing = prefs.getStringList('recentChecks') ?? [];
+    print('📚 Текущее количество записей: ${existing.length}');
+
+    existing.insert(0, jsonEncode(checkData));
+    if (existing.length > 10) {
+      existing.removeRange(10, existing.length);
+      print('🧹 Удалены старые записи, оставлено: 10');
+    }
+
+    final success = await prefs.setStringList('recentChecks', existing);
+    print(success ? '✅ Успешно сохранено' : '❌ Не удалось сохранить');
+  }
+
 
   @override
   Widget build(BuildContext context) {
@@ -114,7 +153,6 @@ class _CheckTextPageState extends State<CheckTextPage> {
               return;
             }
 
-            // Переход на страницу загрузки
             Navigator.push(
               context,
               MaterialPageRoute(builder: (context) => const LoadPage()),
@@ -123,10 +161,11 @@ class _CheckTextPageState extends State<CheckTextPage> {
             try {
               final analyzedResult = await ApiService.analyzeText(inputText);
 
-              // Закрыть страницу загрузки
+              // Сохраняем информацию в последние проверки
+              await _saveToRecentChecks(analyzedResult);
+
               Navigator.pop(context);
 
-              // Переход на страницу с результатом
               Navigator.push(
                 context,
                 MaterialPageRoute(
@@ -134,7 +173,6 @@ class _CheckTextPageState extends State<CheckTextPage> {
                 ),
               );
             } catch (e) {
-              // Закрыть страницу загрузки в случае ошибки
               Navigator.pop(context);
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
