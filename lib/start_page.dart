@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:smooth_page_indicator/smooth_page_indicator.dart';
+import 'login_page.dart'; // обязательно импортируй
+import 'package:firebase_auth/firebase_auth.dart';
+import 'home_page.dart';
+
 
 class StartPage extends StatefulWidget {
   const StartPage({super.key});
@@ -14,36 +18,55 @@ class _StartPageState extends State<StartPage> {
   final List<Map<String, String>> _pages = [
     {
       "title": "ПРОВЕРЯЙТЕ ДОКУМЕНТЫ\nПЕРЕД ПОДПИСАНИЕМ",
-      "subtitle": "Неочевидные условия могут привести к финансовым и юридическим рискам. Будьте уверены в каждом пункте договора!",
+      "subtitle":
+      "Неочевидные условия могут привести к финансовым и юридическим рискам. Будьте уверены в каждом пункте договора!",
       "image": "assets/start_icon_1.png",
     },
     {
       "title": "СКАНИРУЙТЕ ПРИ ПОМОЩИ ТЕЛЕФОНА",
-      "subtitle": "Система распознавания проанализирует документ и отправит текст на анализ нейросети",
+      "subtitle":
+      "Система распознавания проанализирует документ и отправит текст на анализ нейросети",
       "image": "assets/start_icon_2.png",
     },
     {
       "title": "LegalMind\nAI помощник по праву",
-      "subtitle": "Подскажет, как действовать, если контролёр требует оплату без квитанции, ГИБДД останавливает без причины или автобус не приезжает по расписанию",
+      "subtitle":
+      "Подскажет, как действовать, если контролёр требует оплату без квитанции, ГИБДД останавливает без причины или автобус не приезжает по расписанию",
       "image": "assets/start_icon_3.png",
     },
     {
       "title": "ВАШИ ДАННЫЕ\nВ БЕЗОПАСНОСТИ",
-      "subtitle": "Документ анализирует локальная нейросеть на вашем устройстве и не допустит утечки конфиденциальных данных",
+      "subtitle":
+      "Документ анализирует локальная нейросеть на вашем устройстве и не допустит утечки конфиденциальных данных",
       "image": "assets/start_icon_4.png",
     },
   ];
 
-  void _nextPage() {
-    if (_pageController.page! < _pages.length - 1) {
+  int _currentIndex = 0;
+
+  void _nextPage() async {
+    if (_currentIndex < _pages.length - 1) {
       _pageController.nextPage(
         duration: const Duration(milliseconds: 600),
         curve: Curves.easeInOut,
       );
     } else {
-      Navigator.pushReplacementNamed(context, '/home');
+      // Проверка авторизации
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const HomePage()),
+        );
+      } else {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const LoginPage()),
+        );
+      }
     }
   }
+
 
   @override
   Widget build(BuildContext context) {
@@ -60,6 +83,11 @@ class _StartPageState extends State<StartPage> {
                 child: PageView.builder(
                   controller: _pageController,
                   itemCount: _pages.length,
+                  onPageChanged: (index) {
+                    setState(() {
+                      _currentIndex = index;
+                    });
+                  },
                   itemBuilder: (context, index) => Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
@@ -105,25 +133,34 @@ class _StartPageState extends State<StartPage> {
                 ),
               ),
               SizedBox(height: 30 * scale),
-              ElevatedButton.icon(
-                onPressed: _nextPage,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF800000),
-                  minimumSize: Size(double.infinity, 52 * scale),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12 * scale),
+              SizedBox(
+                width: double.infinity,
+                height: 52 * scale,
+                child: ElevatedButton(
+                  onPressed: _nextPage,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF800000),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12 * scale),
+                    ),
                   ),
-                ),
-                icon: const Icon(Icons.arrow_forward, color: Colors.white),
-                label: Text(
-                  (_pageController.hasClients && _pageController.page == _pages.length - 1)
-                      ? "Начать"
-                      : "Далее",
-                  style: TextStyle(
-                    fontFamily: 'DM Sans',
-                    fontSize: 16 * scale,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        _currentIndex == _pages.length - 1 ? "Начать" : "Далее",
+                        style: TextStyle(
+                          fontFamily: 'DM Sans',
+                          fontSize: 16 * scale,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                      if (_currentIndex < _pages.length - 1) ...[
+                        const SizedBox(width: 8),
+                        const Icon(Icons.arrow_forward, color: Colors.white),
+                      ],
+                    ],
                   ),
                 ),
               ),
