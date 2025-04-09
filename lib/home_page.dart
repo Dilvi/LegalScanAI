@@ -8,7 +8,7 @@ import 'chat_page.dart';
 import 'scan_document_page.dart';
 import 'dart:io';
 import 'package:path_provider/path_provider.dart';
-
+import 'upload_file_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -335,7 +335,10 @@ class _HomePageState extends State<HomePage> {
                   label: "Загрузить\nфайл",
                   iconPath: "assets/upload_file_icon.svg",
                   onTap: () {
-                    // TODO
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const UploadFilePage()),
+                    );
                   },
                 ),
               ],

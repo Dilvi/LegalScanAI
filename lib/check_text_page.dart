@@ -29,18 +29,12 @@ class _CheckTextPageState extends State<CheckTextPage> {
     super.dispose();
   }
 
-  Future<void> _saveToRecentChecks(String result) async {
+  Future<void> _saveToRecentChecks(String result, bool hasRisk) async {
     final prefs = await SharedPreferences.getInstance();
 
-    // Определяем тип документа
     final RegExp typeReg = RegExp(r'📝 Тип документа: (.+?) \(уверенность');
     final match = typeReg.firstMatch(result);
     final docType = match != null ? match.group(1)! : 'Неизвестно';
-
-    // Определяем наличие риска
-    final hasRisk = result.contains('💬 Рекомендация от LegalScanAI:\ntrue');
-    print('🧩 Определён тип документа: $docType');
-    print('🚨 Риски обнаружены: $hasRisk');
 
     final checkData = {
       'type': docType,
@@ -48,21 +42,13 @@ class _CheckTextPageState extends State<CheckTextPage> {
       'hasRisk': hasRisk,
     };
 
-    print('📦 Новая запись для сохранения: $checkData');
-
-    // Получаем существующий список
     final existing = prefs.getStringList('recentChecks') ?? [];
-    print('📚 Текущее количество записей: ${existing.length}');
-
     existing.insert(0, jsonEncode(checkData));
-    if (existing.length > 10) {
-      existing.removeRange(10, existing.length);
-      print('🧹 Удалены старые записи, оставлено: 10');
-    }
+    if (existing.length > 10) existing.removeRange(10, existing.length);
 
-    final success = await prefs.setStringList('recentChecks', existing);
-    print(success ? '✅ Успешно сохранено' : '❌ Не удалось сохранить');
+    await prefs.setStringList('recentChecks', existing);
   }
+
 
 
   @override
@@ -159,10 +145,12 @@ class _CheckTextPageState extends State<CheckTextPage> {
             );
 
             try {
-              final analyzedResult = await ApiService.analyzeText(inputText);
+              final response = await ApiService.analyzeText(inputText);
+              final analyzedResult = response['result'];
+              final hasRisk = response['hasRisk'] ?? false;
 
-              // Сохраняем информацию в последние проверки
-              await _saveToRecentChecks(analyzedResult);
+              await _saveToRecentChecks(analyzedResult, hasRisk);
+
 
               Navigator.pop(context);
 

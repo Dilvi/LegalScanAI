@@ -4,7 +4,6 @@ import 'package:camera/camera.dart';
 import 'package:image_picker/image_picker.dart';
 import 'result_page.dart';
 import '../services/api_service.dart';
-import 'dart:io';
 import 'load.dart';
 
 class ScanDocumentPage extends StatefulWidget {
@@ -18,7 +17,7 @@ class _ScanDocumentPageState extends State<ScanDocumentPage> {
   CameraController? _cameraController;
   bool _isFlashOn = false;
   bool _isCameraInitialized = false;
-  bool _isProcessing = false; // Флаг для отображения процесса
+  final bool _isProcessing = false; // Флаг для отображения процесса
   late List<CameraDescription> cameras;
 
   @override

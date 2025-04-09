@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 class ResultPage extends StatefulWidget {
   final String analyzedText;
@@ -31,10 +32,8 @@ class _ResultPageState extends State<ResultPage> {
         backgroundColor: Colors.white,
         elevation: 0,
         leading: IconButton(
-          icon: Image.asset("assets/back_button.png", width: 24, height: 24),
-          onPressed: () {
-            Navigator.pop(context);
-          },
+          icon: SvgPicture.asset("assets/back_button.svg", width: 24, height: 24),
+          onPressed: () => Navigator.pop(context),
         ),
         title: const Text(
           "Результат анализа",
@@ -66,68 +65,41 @@ class _ResultPageState extends State<ResultPage> {
 
     for (String line in text.split('\n')) {
       if (line.startsWith('💬 Рекомендация от GPT-4o-mini:')) {
-        // Начало блока рекомендаций
-        spans.add(
-          const TextSpan(
-            text: '\n💬 Рекомендация от GPT-4o-mini:\n',
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.black),
-          ),
-        );
+        spans.add(const TextSpan(
+          text: '\n💬 Рекомендация от GPT-4o-mini:\n',
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.black),
+        ));
         isRecommendationBlock = true;
         continue;
       }
 
       if (isRecommendationBlock) {
-        // Форматируем текст рекомендаций
         if (line.startsWith('<h2>') && line.endsWith('</h2>')) {
-          // Заголовок
-          spans.add(
-            TextSpan(
-              text: '\n${line.replaceAll('<h2>', '').replaceAll('</h2>', '')}\n',
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.black),
-            ),
-          );
+          spans.add(TextSpan(
+            text: '\n${line.replaceAll('<h2>', '').replaceAll('</h2>', '')}\n',
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.black),
+          ));
         } else if (line.startsWith('• ')) {
-          // Маркированный список
-          spans.add(
-            TextSpan(
-              text: '${line}\n',
-              style: const TextStyle(fontSize: 16, color: Colors.black),
-            ),
-          );
-        } else if (line.contains('<b>') && line.contains('</b>')) {
-          // Жирный текст
-          spans.add(
-            TextSpan(
-              text: '${line.replaceAll('<b>', '').replaceAll('</b>', '')}\n',
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.black),
-            ),
-          );
-        } else if (line.startsWith('<h2>')) {
-          // Обычный текст внутри рекомендаций
-          spans.add(
-            TextSpan(
-              text: '${line.replaceAll('<h2>', '').replaceAll('</h2>', '')}\n',
-              style: const TextStyle(fontSize: 16, color: Colors.black),
-            ),
-          );
-        } else {
-          // Обычный текст
-          spans.add(
-            TextSpan(
-              text: '$line\n',
-              style: const TextStyle(fontSize: 16, color: Colors.black),
-            ),
-          );
-        }
-      } else {
-        // Обычный текст вне рекомендаций
-        spans.add(
-          TextSpan(
+          spans.add(TextSpan(
             text: '$line\n',
             style: const TextStyle(fontSize: 16, color: Colors.black),
-          ),
-        );
+          ));
+        } else if (line.contains('<b>') && line.contains('</b>')) {
+          spans.add(TextSpan(
+            text: '${line.replaceAll('<b>', '').replaceAll('</b>', '')}\n',
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.black),
+          ));
+        } else {
+          spans.add(TextSpan(
+            text: '$line\n',
+            style: const TextStyle(fontSize: 16, color: Colors.black),
+          ));
+        }
+      } else {
+        spans.add(TextSpan(
+          text: '$line\n',
+          style: const TextStyle(fontSize: 16, color: Colors.black),
+        ));
       }
     }
     return TextSpan(children: spans);
@@ -144,69 +116,67 @@ class _ResultPageState extends State<ResultPage> {
           topRight: Radius.circular(25),
         ),
       ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 21),
-        child: Column(
-          children: [
-            const SizedBox(height: 16),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                _buildSquare(
-                  "Расширенный\nанализ",
-                  "assets/advanced_analysis_icon.png",
-                      () {
-                    // Действие для расширенного анализа
-                  },
-                ),
-                _buildSquare(
-                  "Сохранить",
-                  "assets/save_icon.png",
-                      () {
-                    // Действие для сохранения результата
-                  },
-                ),
-                _buildSquare(
-                  "Поделиться",
-                  "assets/share_icon.png",
-                      () {
-                    // Действие для отправки результата
-                  },
-                ),
-              ],
-            ),
-          ],
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 21), // как на home_page
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              _buildSquare("Расширенный\nанализ", "assets/advanced_analysis_icon.svg", () {}),
+              _buildSquare("Сохранить", "assets/save_icon.svg", () {}),
+              _buildSquare("Поделиться", "assets/share_icon.svg", () {}),
+            ],
+          ),
         ),
       ),
     );
   }
 
+
   Widget _buildSquare(String label, String iconPath, VoidCallback onTap) {
     return Column(
+      mainAxisSize: MainAxisSize.min,
       children: [
-        InkWell(
-          onTap: onTap,
+        Material(
+          color: Colors.white,
           borderRadius: BorderRadius.circular(8),
-          child: Container(
-            width: 52,
-            height: 52,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Center(
-              child: Image.asset(iconPath, width: 24, height: 24),
+          elevation: 1,
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(8),
+            splashColor: Colors.red.withOpacity(0.2),
+            child: SizedBox(
+              width: 52,
+              height: 52,
+              child: Center(
+                child: SvgPicture.asset(
+                  iconPath,
+                  width: 24,
+                  height: 24,
+                  color: const Color(0xFF800000),
+                ),
+              ),
             ),
           ),
         ),
         const SizedBox(height: 8),
-        Text(
-          label,
-          textAlign: TextAlign.center,
-          style: const TextStyle(
-            fontFamily: 'DM Sans',
-            fontSize: 14,
-            color: Colors.white,
+        SizedBox(
+          width: 74,
+          height: 34,
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              label,
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              style: const TextStyle(
+                fontFamily: 'DM Sans',
+                fontSize: 13,
+                color: Colors.white,
+              ),
+            ),
           ),
         ),
       ],
