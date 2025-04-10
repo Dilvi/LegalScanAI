@@ -59,7 +59,12 @@ class _UploadFilePageState extends State<UploadFilePage> {
           Navigator.pop(context);
           Navigator.push(
             context,
-            MaterialPageRoute(builder: (_) => ResultPage(analyzedText: resultText)),
+            MaterialPageRoute(
+              builder: (_) => ResultPage(
+                analyzedText: resultText,
+                originalText: text, // 👈 передаём оригинальный текст
+              ),
+            ),
           );
         }
       }

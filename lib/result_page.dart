@@ -1,10 +1,16 @@
+import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'saved_check.dart';
 
 class ResultPage extends StatefulWidget {
   final String analyzedText;
+  final String? originalText;
 
-  const ResultPage({super.key, required this.analyzedText});
+  const ResultPage({super.key, required this.analyzedText, this.originalText});
 
   @override
   _ResultPageState createState() => _ResultPageState();
@@ -12,6 +18,7 @@ class ResultPage extends StatefulWidget {
 
 class _ResultPageState extends State<ResultPage> {
   late TextEditingController _textController;
+  bool isSaved = false;
 
   @override
   void initState() {
@@ -64,44 +71,21 @@ class _ResultPageState extends State<ResultPage> {
     bool isRecommendationBlock = false;
 
     for (String line in text.split('\n')) {
-      if (line.startsWith('💬 Рекомендация от GPT-4o-mini:')) {
+      if (line.startsWith('💬 Рекомендация от LegalScanAI:')) {
         spans.add(const TextSpan(
-          text: '\n💬 Рекомендация от GPT-4o-mini:\n',
+          text: '\n💬 Рекомендация от LegalScanAI:\n',
           style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.black),
         ));
         isRecommendationBlock = true;
         continue;
       }
 
-      if (isRecommendationBlock) {
-        if (line.startsWith('<h2>') && line.endsWith('</h2>')) {
-          spans.add(TextSpan(
-            text: '\n${line.replaceAll('<h2>', '').replaceAll('</h2>', '')}\n',
-            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.black),
-          ));
-        } else if (line.startsWith('• ')) {
-          spans.add(TextSpan(
-            text: '$line\n',
-            style: const TextStyle(fontSize: 16, color: Colors.black),
-          ));
-        } else if (line.contains('<b>') && line.contains('</b>')) {
-          spans.add(TextSpan(
-            text: '${line.replaceAll('<b>', '').replaceAll('</b>', '')}\n',
-            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.black),
-          ));
-        } else {
-          spans.add(TextSpan(
-            text: '$line\n',
-            style: const TextStyle(fontSize: 16, color: Colors.black),
-          ));
-        }
-      } else {
-        spans.add(TextSpan(
-          text: '$line\n',
-          style: const TextStyle(fontSize: 16, color: Colors.black),
-        ));
-      }
+      spans.add(TextSpan(
+        text: '$line\n',
+        style: const TextStyle(fontSize: 16, color: Colors.black),
+      ));
     }
+
     return TextSpan(children: spans);
   }
 
@@ -119,13 +103,13 @@ class _ResultPageState extends State<ResultPage> {
       child: SafeArea(
         top: false,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 21), // как на home_page
+          padding: const EdgeInsets.symmetric(horizontal: 21),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               _buildSquare("Расширенный\nанализ", "assets/advanced_analysis_icon.svg", () {}),
-              _buildSquare("Сохранить", "assets/save_icon.svg", () {}),
+              _buildSquare("Сохранить", "assets/save_icon.svg", isSaved ? null : _saveResult),
               _buildSquare("Поделиться", "assets/share_icon.svg", () {}),
             ],
           ),
@@ -134,8 +118,7 @@ class _ResultPageState extends State<ResultPage> {
     );
   }
 
-
-  Widget _buildSquare(String label, String iconPath, VoidCallback onTap) {
+  Widget _buildSquare(String label, String iconPath, VoidCallback? onTap) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -146,7 +129,7 @@ class _ResultPageState extends State<ResultPage> {
           child: InkWell(
             onTap: onTap,
             borderRadius: BorderRadius.circular(8),
-            splashColor: Colors.red.withOpacity(0.2),
+            splashColor: onTap == null ? Colors.transparent : Colors.red.withOpacity(0.2),
             child: SizedBox(
               width: 52,
               height: 52,
@@ -171,15 +154,66 @@ class _ResultPageState extends State<ResultPage> {
               label,
               textAlign: TextAlign.center,
               maxLines: 2,
-              style: const TextStyle(
+              style: TextStyle(
                 fontFamily: 'DM Sans',
                 fontSize: 13,
-                color: Colors.white,
+                color: onTap == null ? Colors.white.withOpacity(0.4) : Colors.white,
               ),
             ),
           ),
         ),
       ],
     );
+  }
+
+  Future<void> _saveResult() async {
+    try {
+      final directory = await getTemporaryDirectory();
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      final filePath = '${directory.path}/saved_check_$timestamp.txt';
+
+      final originalText = widget.originalText ?? 'Текст недоступен';
+      final match = RegExp(r'💬 Рекомендация от LegalScanAI:\s*\n([\s\S]+)').firstMatch(widget.analyzedText);
+      final recommendation = match?.group(1)?.trim() ?? 'Рекомендация не найдена';
+
+      final content = '📝 Оригинальный текст:\n$originalText\n\n💬 Рекомендация:\n$recommendation';
+
+      final file = File(filePath);
+      await file.writeAsString(content);
+
+      final prefs = await SharedPreferences.getInstance();
+      final recent = prefs.getStringList('recentChecks') ?? [];
+
+      // Извлечение типа документа из анализа
+      final docMatch = RegExp(r'📝 Тип документа: (.+?) \(уверенность').firstMatch(widget.analyzedText);
+      final docType = docMatch?.group(1)?.trim() ?? 'Документ';
+
+      final checkData = {
+        'type': docType,
+        'date': DateTime.now().toString().substring(0, 16),
+        'hasRisk': null,
+        'filePath': filePath,
+      };
+
+      recent.insert(0, jsonEncode(checkData));
+      await prefs.setStringList('recentChecks', recent.take(10).toList());
+
+      if (!mounted) return;
+
+      setState(() {
+        isSaved = true;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Результат сохранён'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Ошибка сохранения: $e"), backgroundColor: Colors.red),
+      );
+    }
   }
 }
