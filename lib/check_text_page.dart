@@ -157,9 +157,13 @@ class _CheckTextPageState extends State<CheckTextPage> {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => ResultPage(analyzedText: analyzedResult),
+                  builder: (context) => ResultPage(
+                    analyzedText: analyzedResult,
+                    originalText: inputText, // 👈 передаём оригинальный текст
+                  ),
                 ),
               );
+
             } catch (e) {
               Navigator.pop(context);
               ScaffoldMessenger.of(context).showSnackBar(

@@ -1,14 +1,17 @@
-import 'dart:convert';
+// В начале файла
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:path_provider/path_provider.dart';
+import 'dart:io';
+import 'dart:convert';
+
 import 'check_text_page.dart';
 import 'profile_page.dart';
 import 'chat_page.dart';
 import 'scan_document_page.dart';
-import 'dart:io';
-import 'package:path_provider/path_provider.dart';
 import 'upload_file_page.dart';
+import 'saved_check.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -22,7 +25,6 @@ class _HomePageState extends State<HomePage> {
   Set<int> selectedIndexes = {};
   bool isSelectionMode = false;
   File? _avatarImage;
-
 
   @override
   void initState() {
@@ -47,9 +49,11 @@ class _HomePageState extends State<HomePage> {
     final list = prefs.getStringList('recentChecks') ?? [];
 
     setState(() {
-      recentChecks = list
-          .map((jsonStr) => jsonDecode(jsonStr) as Map<String, dynamic>)
-          .toList();
+      recentChecks = list.map((jsonStr) {
+        final decoded = jsonDecode(jsonStr) as Map<String, dynamic>;
+        print('📂 Загрузка элемента: ${decoded['type']} | файл: ${decoded['filePath']}');
+        return decoded;
+      }).toList();
     });
   }
 
@@ -67,9 +71,7 @@ class _HomePageState extends State<HomePage> {
         newList.removeAt(index);
       });
 
-    final updatedStringList =
-    newList.map((e) => jsonEncode(e)).toList();
-
+    final updatedStringList = newList.map((e) => jsonEncode(e)).toList();
     await prefs.setStringList('recentChecks', updatedStringList);
 
     setState(() {
@@ -146,7 +148,8 @@ class _HomePageState extends State<HomePage> {
                     ),
                     TextButton(
                       onPressed: () => Navigator.pop(ctx, true),
-                      child: const Text("Удалить", style: TextStyle(color: Colors.red)),
+                      child: const Text("Удалить",
+                          style: TextStyle(color: Colors.red)),
                     ),
                   ],
                 ),
@@ -177,7 +180,9 @@ class _HomePageState extends State<HomePage> {
                       child: CircleAvatar(
                         radius: 22.5,
                         backgroundColor: const Color(0xFF800000),
-                        backgroundImage: _avatarImage != null ? FileImage(_avatarImage!) : null,
+                        backgroundImage: _avatarImage != null
+                            ? FileImage(_avatarImage!)
+                            : null,
                         child: _avatarImage == null
                             ? const Icon(Icons.person, color: Colors.white)
                             : null,
@@ -212,32 +217,70 @@ class _HomePageState extends State<HomePage> {
                 onRefresh: _refresh,
                 color: const Color(0xFF800000),
                 child: ListView.separated(
-                  padding: const EdgeInsets.only(bottom: 230, left: 20, right: 20),
+                  padding:
+                  const EdgeInsets.only(bottom: 230, left: 20, right: 20),
                   itemCount: recentChecks.length,
-                  separatorBuilder: (context, index) => const Divider(height: 1, color: Color(0xFFE0E0E0)),
+                  separatorBuilder: (context, index) =>
+                  const Divider(height: 1, color: Color(0xFFE0E0E0)),
                   itemBuilder: (context, index) {
                     final item = recentChecks[index];
                     final isSelected = selectedIndexes.contains(index);
+                    final hasFile = item.containsKey('filePath');
+
                     return GestureDetector(
                       onLongPress: () => _toggleSelection(index),
-                      onTap: () {
+                      onTap: () async {
                         if (isSelectionMode) {
                           _toggleSelection(index);
                         } else {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text("Результат не был сохранён"),
-                            ),
-                          );
+                          if (hasFile) {
+                            final file = File(item['filePath']);
+                            if (await file.exists()) {
+                              print('✅ Открытие сохранённого файла: ${item['filePath']}');
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) =>
+                                      SavedCheckPage(savedFile: file),
+                                ),
+                              );
+                            } else {
+                              print('❌ Файл не найден: ${item['filePath']}');
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content:
+                                  Text("Файл не найден на устройстве"),
+                                ),
+                              );
+                            }
+                          } else {
+                            print('ℹ️ Результат не был сохранён.');
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text("Результат не был сохранён"),
+                              ),
+                            );
+                          }
                         }
                       },
                       child: Container(
                         color: isSelected ? const Color(0x11707070) : null,
                         child: ListTile(
-                          leading: SvgPicture.asset(
-                            'assets/doc.svg',
-                            width: 45,
-                            height: 45,
+                          leading: Stack(
+                            children: [
+                              SvgPicture.asset(
+                                'assets/doc.svg',
+                                width: 45,
+                                height: 45,
+                              ),
+                              if (hasFile)
+                                Positioned(
+                                  right: 0,
+                                  bottom: 0,
+                                  child: Icon(Icons.check_circle,
+                                      color: Colors.green, size: 16),
+                                ),
+                            ],
                           ),
                           title: Text(
                             item['type'] ?? 'Неизвестно',
@@ -328,7 +371,8 @@ class _HomePageState extends State<HomePage> {
                   iconPath: "assets/scan_doc_icon.svg",
                   onTap: () => Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (_) => const ScanDocumentPage()),
+                    MaterialPageRoute(
+                        builder: (_) => const ScanDocumentPage()),
                   ),
                 ),
                 _buildIconButton(
