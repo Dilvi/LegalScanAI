@@ -30,9 +30,10 @@ async def analyze_text(input: TextInput):
     if entities:
         entities_text = "\n\n🔍 Обнаруженные сущности:\n"
         for ent in entities:
-            entities_text += f"🔹 [{ent['type']}] {ent['text']}\n"
+            entities_text += f"🔹 [{ent['label']}] {ent['text']}\n"
     else:
         entities_text = "\n\n🔸 Сущности не обнаружены."
+
 
     # Обезличивание текста
     anonymized_text = anonymizer.anonymize(input.text, entities)

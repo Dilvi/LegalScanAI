@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter_html/flutter_html.dart';
 
 class SavedCheckPage extends StatelessWidget {
   final File savedFile;
@@ -46,13 +47,34 @@ class SavedCheckPage extends StatelessWidget {
             return Padding(
               padding: const EdgeInsets.all(20.0),
               child: SingleChildScrollView(
-                child: SelectableText(
-                  snapshot.data ?? 'Файл пуст',
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontFamily: 'DM Sans',
-                    color: Colors.black,
-                  ),
+                child: Html(
+                  data: snapshot.data ?? 'Файл пуст',
+                  style: {
+                    "body": Style(
+                      fontSize: FontSize(16),
+                      color: Colors.black,
+                      fontFamily: 'DM Sans',
+                      lineHeight: LineHeight.number(1.4),
+                      whiteSpace: WhiteSpace.normal,
+                    ),
+                    "b": Style(fontWeight: FontWeight.bold),
+                    "i": Style(fontStyle: FontStyle.italic),
+                    "code": Style(
+                      backgroundColor: Colors.grey.shade200,
+                      padding: HtmlPaddings.symmetric(horizontal: 6, vertical: 2),
+                      fontFamily: 'Courier',
+                    ),
+                    "h2": Style(
+                      fontSize: FontSize(18),
+                      fontWeight: FontWeight.bold,
+                      margin: Margins.only(bottom: 8),
+                    ),
+                    "h3": Style(
+                      fontSize: FontSize(16),
+                      fontWeight: FontWeight.w600,
+                      margin: Margins.only(bottom: 6),
+                    ),
+                  },
                 ),
               ),
             );

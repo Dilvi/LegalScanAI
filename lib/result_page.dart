@@ -6,9 +6,13 @@ import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart';
 import 'package:intl/date_symbol_data_local.dart';
-
+import 'subscription_page.dart';
 import 'home_page.dart';
-import 'saved_check.dart';
+import 'package:flutter_html/flutter_html.dart';
+import 'package:share_plus/share_plus.dart';
+
+
+
 
 class ResultPage extends StatefulWidget {
   final String analyzedText;
@@ -73,8 +77,9 @@ class _ResultPageState extends State<ResultPage> {
         body: Padding(
           padding: const EdgeInsets.all(20.0),
           child: SingleChildScrollView(
-            child: SelectableText.rich(
-              _formatAnalyzedText(widget.analyzedText),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: _buildFormattedSections(widget.analyzedText),
             ),
           ),
         ),
@@ -82,6 +87,54 @@ class _ResultPageState extends State<ResultPage> {
       ),
     );
   }
+
+  List<Widget> _buildFormattedSections(String fullText) {
+    final List<Widget> widgets = [];
+    final parts = fullText.split('💬 Рекомендация от LegalScanAI:');
+
+    if (parts.isNotEmpty) {
+      widgets.add(
+        SelectableText(
+          parts.first.trim(),
+          style: const TextStyle(fontSize: 16, color: Colors.black),
+        ),
+      );
+    }
+
+    if (parts.length > 1) {
+      widgets.add(
+        const SizedBox(height: 24),
+      );
+      widgets.add(
+        const Text(
+          '💬 Рекомендация от LegalScanAI:',
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 18,
+            color: Colors.black,
+          ),
+        ),
+      );
+      widgets.add(
+        const SizedBox(height: 8),
+      );
+      widgets.add(
+        Html(
+          data: parts.last.trim(),
+          style: {
+            "body": Style(
+              fontSize: FontSize(16),
+              fontFamily: 'DM Sans',
+              color: Colors.black,
+            ),
+          },
+        ),
+      );
+    }
+
+    return widgets;
+  }
+
 
   TextSpan _formatAnalyzedText(String text) {
     List<TextSpan> spans = [];
@@ -129,19 +182,57 @@ class _ResultPageState extends State<ResultPage> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              _buildSquare("Расширенный\nанализ", "assets/advanced_analysis_icon.svg", () {}),
+              _buildSquare("Расширенный\nанализ", "assets/advanced_analysis_icon.svg", _handleAdvancedAnalysis),
               _buildSquare(
                 "Сохранить",
                 "assets/save_icon.svg",
                 isSaved ? null : _saveResult,
               ),
-              _buildSquare("Поделиться", "assets/share_icon.svg", () {}),
+              _buildSquare("Поделиться", "assets/share_icon.svg", _shareResult),
             ],
           ),
         ),
       ),
     );
   }
+
+  Future<void> _shareResult() async {
+    try {
+      final directory = await getTemporaryDirectory();
+      final filePath = '${directory.path}/shared_result_${DateTime.now().millisecondsSinceEpoch}.txt';
+      final file = File(filePath);
+
+      final originalText = widget.originalText ?? 'Текст недоступен';
+      final match = RegExp(r'💬 Рекомендация от LegalScanAI:\s*\n([\s\S]+)').firstMatch(widget.analyzedText);
+      final recommendation = match?.group(1)?.trim() ?? 'Рекомендация не найдена';
+
+      await file.writeAsString(
+        '📝 Оригинальный текст:\n$originalText\n\n💬 Рекомендация:\n$recommendation',
+      );
+
+      await Share.shareXFiles([XFile(file.path)], text: 'Результат анализа документа');
+
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Ошибка при отправке: $e'), backgroundColor: Colors.red),
+      );
+    }
+  }
+
+
+  void _handleAdvancedAnalysis() async {
+    if (!isSaved) {
+      await _saveResult();
+    }
+
+    if (!mounted) return;
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const SubscriptionPage()),
+    );
+  }
+
 
   Widget _buildSquare(String label, String iconPath, VoidCallback? onTap) {
     return Column(
@@ -192,23 +283,30 @@ class _ResultPageState extends State<ResultPage> {
   }
 
   Future<void> _handleBack() async {
+    final prefs = await SharedPreferences.getInstance();
+    final recent = prefs.getStringList('recentChecks') ?? [];
+
+    final docMatch = RegExp(r'📝 Тип документа: (.+?) \(уверенность').firstMatch(widget.analyzedText);
+    final docType = docMatch?.group(1)?.trim() ?? 'Документ';
+    final formattedDate = DateFormat('dd MMMM yyyy, HH:mm:ss', 'ru_RU').format(DateTime.now());
+
     if (!isSaved) {
-      final prefs = await SharedPreferences.getInstance();
-      final recent = prefs.getStringList('recentChecks') ?? [];
-
-      final docMatch = RegExp(r'📝 Тип документа: (.+?) \(уверенность').firstMatch(widget.analyzedText);
-      final docType = docMatch?.group(1)?.trim() ?? 'Документ';
-
-      final formattedDate = DateFormat('dd MMMM yyyy, HH:mm', 'ru_RU').format(DateTime.now());
-
       final checkData = {
         'type': docType,
         'date': formattedDate,
-        'hasRisk': widget.hasRisk ?? true,
+        'hasRisk': widget.hasRisk ?? false,
       };
 
-      recent.insert(0, jsonEncode(checkData));
-      await prefs.setStringList('recentChecks', recent.take(10).toList());
+      // Удаляем ТОЛЬКО если совпадает type и точная дата
+      final filtered = recent.where((entry) {
+        final decoded = jsonDecode(entry);
+        return !(decoded['type'] == docType &&
+            !decoded.containsKey('filePath') &&
+            decoded['date'] == formattedDate);
+      }).toList();
+
+      filtered.insert(0, jsonEncode(checkData));
+      await prefs.setStringList('recentChecks', filtered.take(10).toList());
     }
 
     if (!mounted) return;
@@ -219,6 +317,8 @@ class _ResultPageState extends State<ResultPage> {
           (route) => false,
     );
   }
+
+
 
   Future<void> _saveResult() async {
     try {
@@ -231,18 +331,19 @@ class _ResultPageState extends State<ResultPage> {
       final docMatch = RegExp(r'📝 Тип документа: (.+?) \(уверенность').firstMatch(widget.analyzedText);
       final docType = docMatch?.group(1)?.trim() ?? 'Документ';
 
-      final alreadySaved = recent.any((entry) {
-        final decoded = jsonDecode(entry);
-        return decoded['type'] == docType && decoded['filePath'] != null;
-      });
-
-      if (alreadySaved) return;
+      final formattedDate = DateFormat('dd MMMM yyyy, HH:mm:ss', 'ru_RU').format(DateTime.now());
 
       final filePath = '${(await getTemporaryDirectory()).path}/saved_${DateTime.now().millisecondsSinceEpoch}.txt';
       final file = File(filePath);
       await file.writeAsString('📝 Оригинальный текст:\n$originalText\n\n💬 Рекомендация:\n$recommendation');
 
-      final formattedDate = DateFormat('dd MMMM yyyy, HH:mm', 'ru_RU').format(DateTime.now());
+      // Удаляем ТОЛЬКО ту, что совпадает по типу и дате
+      recent.removeWhere((entry) {
+        final decoded = jsonDecode(entry);
+        return decoded['type'] == docType &&
+            !decoded.containsKey('filePath') &&
+            decoded['date'] == formattedDate;
+      });
 
       final newCheck = {
         'type': docType,
@@ -269,4 +370,6 @@ class _ResultPageState extends State<ResultPage> {
       );
     }
   }
+
+
 }

@@ -23,4 +23,7 @@ class TextFormatter:
         # Код (например, `код`)
         text = re.sub(r"`([^`]*)`", r"<code>\1</code>", text)
 
+        # ✅ Добавим замену \n на <br> для сохранения отступов
+        text = text.replace('\n', '<br>')
+
         return text
