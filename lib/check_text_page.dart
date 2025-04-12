@@ -29,28 +29,6 @@ class _CheckTextPageState extends State<CheckTextPage> {
     super.dispose();
   }
 
-  Future<void> _saveToRecentChecks(String result, bool hasRisk) async {
-    final prefs = await SharedPreferences.getInstance();
-
-    final RegExp typeReg = RegExp(r'📝 Тип документа: (.+?) \(уверенность');
-    final match = typeReg.firstMatch(result);
-    final docType = match != null ? match.group(1)! : 'Неизвестно';
-
-    final checkData = {
-      'type': docType,
-      'date': DateFormat('dd.MM.yyyy HH:mm').format(DateTime.now()),
-      'hasRisk': hasRisk,
-    };
-
-    final existing = prefs.getStringList('recentChecks') ?? [];
-    existing.insert(0, jsonEncode(checkData));
-    if (existing.length > 10) existing.removeRange(10, existing.length);
-
-    await prefs.setStringList('recentChecks', existing);
-  }
-
-
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -149,9 +127,6 @@ class _CheckTextPageState extends State<CheckTextPage> {
               final analyzedResult = response['result'];
               final hasRisk = response['hasRisk'] ?? false;
 
-              await _saveToRecentChecks(analyzedResult, hasRisk);
-
-
               Navigator.pop(context);
 
               Navigator.push(
@@ -159,11 +134,11 @@ class _CheckTextPageState extends State<CheckTextPage> {
                 MaterialPageRoute(
                   builder: (context) => ResultPage(
                     analyzedText: analyzedResult,
-                    originalText: inputText, // 👈 передаём оригинальный текст
+                    originalText: inputText,
+                    hasRisk: hasRisk, // 👈 тоже передаём, чтобы сохранить позже
                   ),
                 ),
               );
-
             } catch (e) {
               Navigator.pop(context);
               ScaffoldMessenger.of(context).showSnackBar(

@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'home_page.dart';
 import 'login_page.dart';
 import 'start_page.dart';
+import 'pin_code_verify_page.dart'; // 👈 не забудь импортировать
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -78,23 +79,34 @@ class _LaunchRouterState extends State<LaunchRouter> {
 class AuthWrapper extends StatelessWidget {
   const AuthWrapper({super.key});
 
+  Future<Widget> _determineStartScreen() async {
+    final prefs = await SharedPreferences.getInstance();
+    final pinEnabled = prefs.getBool('pin_enabled') ?? false;
+
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      if (pinEnabled) {
+        return const PinCodeVerifyPage(); // 👈 Показываем экран ввода PIN
+      } else {
+        return const HomePage();
+      }
+    } else {
+      return const LoginPage();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<User?>(
-      stream: FirebaseAuth.instance.authStateChanges(),
+    return FutureBuilder<Widget>(
+      future: _determineStartScreen(),
       builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.active) {
-          final user = snapshot.data;
-          if (user != null) {
-            return const HomePage();
-          } else {
-            return const LoginPage();
-          }
+        if (snapshot.connectionState == ConnectionState.done) {
+          return snapshot.data!;
+        } else {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
         }
-
-        return const Scaffold(
-          body: Center(child: CircularProgressIndicator()),
-        );
       },
     );
   }

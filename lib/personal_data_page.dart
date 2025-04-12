@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'load.dart';
+import 'no_connection.dart';
 
 class PersonalDataPage extends StatefulWidget {
   const PersonalDataPage({super.key});
@@ -16,9 +18,11 @@ class _PersonalDataPageState extends State<PersonalDataPage> {
   final TextEditingController _surnameController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _phoneController = TextEditingController();
-  bool _isSaveButtonEnabled = false;
 
-  // Хранение изначальных данных
+  bool _isSaveButtonEnabled = false;
+  bool _isLoading = true;
+  bool _hasError = false;
+
   String _initialName = '';
   String _initialSurname = '';
   String _initialEmail = '';
@@ -47,7 +51,6 @@ class _PersonalDataPageState extends State<PersonalDataPage> {
     });
   }
 
-  // Загрузка данных пользователя из Firestore
   Future<void> _loadUserData() async {
     try {
       User? user = FirebaseAuth.instance.currentUser;
@@ -58,35 +61,38 @@ class _PersonalDataPageState extends State<PersonalDataPage> {
             .get();
 
         if (userDoc.exists) {
-          setState(() {
-            _initialName = userDoc['name'] ?? '';
-            _initialSurname = userDoc['surname'] ?? '';
-            _initialEmail = userDoc['email'] ?? '';
-            _initialPhone = userDoc['phone'] ?? '';
+          _initialName = userDoc['name'] ?? '';
+          _initialSurname = userDoc['surname'] ?? '';
+          _initialEmail = userDoc['email'] ?? '';
+          _initialPhone = userDoc['phone'] ?? '';
 
-            _nameController.text = _initialName;
-            _surnameController.text = _initialSurname;
-            _emailController.text = _initialEmail;
-            _phoneController.text = _initialPhone;
+          _nameController.text = _initialName;
+          _surnameController.text = _initialSurname;
+          _emailController.text = _initialEmail;
+          _phoneController.text = _initialPhone;
 
-            _isSaveButtonEnabled = false;
-          });
+          _isSaveButtonEnabled = false;
         }
+
+        setState(() {
+          _isLoading = false;
+          _hasError = false;
+        });
       }
     } catch (e) {
       print("Ошибка при загрузке данных: $e");
+      setState(() {
+        _isLoading = false;
+        _hasError = true;
+      });
     }
   }
 
-  // Сохранение обновленных данных в Firestore
   Future<void> _saveUserData() async {
     try {
       User? user = FirebaseAuth.instance.currentUser;
       if (user != null) {
-        await FirebaseFirestore.instance
-            .collection('users')
-            .doc(user.uid)
-            .update({
+        await FirebaseFirestore.instance.collection('users').doc(user.uid).update({
           'name': _nameController.text.trim(),
           'surname': _surnameController.text.trim(),
           'email': _emailController.text.trim(),
@@ -97,7 +103,6 @@ class _PersonalDataPageState extends State<PersonalDataPage> {
           const SnackBar(content: Text('Данные успешно сохранены')),
         );
 
-        // Обновляем начальные значения после сохранения
         setState(() {
           _initialName = _nameController.text.trim();
           _initialSurname = _surnameController.text.trim();
@@ -164,6 +169,14 @@ class _PersonalDataPageState extends State<PersonalDataPage> {
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const LoadPage();
+    }
+
+    if (_hasError) {
+      return const NoConnectionPage();
+    }
+
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
@@ -229,9 +242,7 @@ class _PersonalDataPageState extends State<PersonalDataPage> {
                         }
                             : null,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: _isSaveButtonEnabled
-                              ? const Color(0xFF800000)
-                              : Colors.grey,
+                          backgroundColor: _isSaveButtonEnabled ? const Color(0xFF800000) : Colors.grey,
                           foregroundColor: Colors.white,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),

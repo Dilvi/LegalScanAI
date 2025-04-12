@@ -4,13 +4,23 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:intl/intl.dart';
+import 'package:intl/date_symbol_data_local.dart';
+
+import 'home_page.dart';
 import 'saved_check.dart';
 
 class ResultPage extends StatefulWidget {
   final String analyzedText;
   final String? originalText;
+  final bool? hasRisk;
 
-  const ResultPage({super.key, required this.analyzedText, this.originalText});
+  const ResultPage({
+    super.key,
+    required this.analyzedText,
+    this.originalText,
+    this.hasRisk,
+  });
 
   @override
   _ResultPageState createState() => _ResultPageState();
@@ -24,6 +34,7 @@ class _ResultPageState extends State<ResultPage> {
   void initState() {
     super.initState();
     _textController = TextEditingController(text: widget.analyzedText);
+    initializeDateFormatting('ru_RU', null);
   }
 
   @override
@@ -34,41 +45,46 @@ class _ResultPageState extends State<ResultPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
+    return WillPopScope(
+      onWillPop: () async {
+        await _handleBack();
+        return false;
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          backgroundColor: Colors.white,
+          elevation: 0,
+          leading: IconButton(
+            icon: SvgPicture.asset("assets/back_button.svg", width: 24, height: 24),
+            onPressed: _handleBack,
+          ),
+          title: const Text(
+            "Результат анализа",
+            style: TextStyle(
+              fontFamily: 'DM Sans',
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Colors.black,
+            ),
+          ),
+          centerTitle: true,
+        ),
         backgroundColor: Colors.white,
-        elevation: 0,
-        leading: IconButton(
-          icon: SvgPicture.asset("assets/back_button.svg", width: 24, height: 24),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: const Text(
-          "Результат анализа",
-          style: TextStyle(
-            fontFamily: 'DM Sans',
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-            color: Colors.black,
+        body: Padding(
+          padding: const EdgeInsets.all(20.0),
+          child: SingleChildScrollView(
+            child: SelectableText.rich(
+              _formatAnalyzedText(widget.analyzedText),
+            ),
           ),
         ),
-        centerTitle: true,
+        bottomNavigationBar: _buildBottomPanel(context),
       ),
-      backgroundColor: Colors.white,
-      body: Padding(
-        padding: const EdgeInsets.all(20.0),
-        child: SingleChildScrollView(
-          child: SelectableText.rich(
-            _formatAnalyzedText(widget.analyzedText),
-          ),
-        ),
-      ),
-      bottomNavigationBar: _buildBottomPanel(context),
     );
   }
 
   TextSpan _formatAnalyzedText(String text) {
     List<TextSpan> spans = [];
-    bool isRecommendationBlock = false;
 
     for (String line in text.split('\n')) {
       if (line.startsWith('💬 Рекомендация от LegalScanAI:')) {
@@ -76,16 +92,22 @@ class _ResultPageState extends State<ResultPage> {
           text: '\n💬 Рекомендация от LegalScanAI:\n',
           style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.black),
         ));
-        isRecommendationBlock = true;
         continue;
       }
 
-      spans.add(TextSpan(
-        text: '$line\n',
-        style: const TextStyle(fontSize: 16, color: Colors.black),
-      ));
+      spans.add(
+        TextSpan(
+          text: '$line\n',
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: (line.contains('<b>') && line.contains('</b>'))
+                ? FontWeight.bold
+                : FontWeight.normal,
+            color: Colors.black,
+          ),
+        ),
+      );
     }
-
     return TextSpan(children: spans);
   }
 
@@ -106,10 +128,13 @@ class _ResultPageState extends State<ResultPage> {
           padding: const EdgeInsets.symmetric(horizontal: 21),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               _buildSquare("Расширенный\nанализ", "assets/advanced_analysis_icon.svg", () {}),
-              _buildSquare("Сохранить", "assets/save_icon.svg", isSaved ? null : _saveResult),
+              _buildSquare(
+                "Сохранить",
+                "assets/save_icon.svg",
+                isSaved ? null : _saveResult,
+              ),
               _buildSquare("Поделиться", "assets/share_icon.svg", () {}),
             ],
           ),
@@ -129,7 +154,7 @@ class _ResultPageState extends State<ResultPage> {
           child: InkWell(
             onTap: onTap,
             borderRadius: BorderRadius.circular(8),
-            splashColor: onTap == null ? Colors.transparent : Colors.red.withOpacity(0.2),
+            splashColor: onTap != null ? Colors.red.withOpacity(0.2) : Colors.transparent,
             child: SizedBox(
               width: 52,
               height: 52,
@@ -138,7 +163,7 @@ class _ResultPageState extends State<ResultPage> {
                   iconPath,
                   width: 24,
                   height: 24,
-                  color: const Color(0xFF800000),
+                  color: const Color(0xFF800000).withOpacity(onTap != null ? 1 : 0.4),
                 ),
               ),
             ),
@@ -157,7 +182,7 @@ class _ResultPageState extends State<ResultPage> {
               style: TextStyle(
                 fontFamily: 'DM Sans',
                 fontSize: 13,
-                color: onTap == null ? Colors.white.withOpacity(0.4) : Colors.white,
+                color: onTap != null ? Colors.white : Colors.white.withOpacity(0.4),
               ),
             ),
           ),
@@ -166,36 +191,67 @@ class _ResultPageState extends State<ResultPage> {
     );
   }
 
+  Future<void> _handleBack() async {
+    if (!isSaved) {
+      final prefs = await SharedPreferences.getInstance();
+      final recent = prefs.getStringList('recentChecks') ?? [];
+
+      final docMatch = RegExp(r'📝 Тип документа: (.+?) \(уверенность').firstMatch(widget.analyzedText);
+      final docType = docMatch?.group(1)?.trim() ?? 'Документ';
+
+      final formattedDate = DateFormat('dd MMMM yyyy, HH:mm', 'ru_RU').format(DateTime.now());
+
+      final checkData = {
+        'type': docType,
+        'date': formattedDate,
+        'hasRisk': widget.hasRisk ?? true,
+      };
+
+      recent.insert(0, jsonEncode(checkData));
+      await prefs.setStringList('recentChecks', recent.take(10).toList());
+    }
+
+    if (!mounted) return;
+
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(builder: (_) => const HomePage()),
+          (route) => false,
+    );
+  }
+
   Future<void> _saveResult() async {
     try {
-      final directory = await getTemporaryDirectory();
-      final timestamp = DateTime.now().millisecondsSinceEpoch;
-      final filePath = '${directory.path}/saved_check_$timestamp.txt';
+      final prefs = await SharedPreferences.getInstance();
+      final recent = prefs.getStringList('recentChecks') ?? [];
 
       final originalText = widget.originalText ?? 'Текст недоступен';
       final match = RegExp(r'💬 Рекомендация от LegalScanAI:\s*\n([\s\S]+)').firstMatch(widget.analyzedText);
       final recommendation = match?.group(1)?.trim() ?? 'Рекомендация не найдена';
-
-      final content = '📝 Оригинальный текст:\n$originalText\n\n💬 Рекомендация:\n$recommendation';
-
-      final file = File(filePath);
-      await file.writeAsString(content);
-
-      final prefs = await SharedPreferences.getInstance();
-      final recent = prefs.getStringList('recentChecks') ?? [];
-
-      // Извлечение типа документа из анализа
       final docMatch = RegExp(r'📝 Тип документа: (.+?) \(уверенность').firstMatch(widget.analyzedText);
       final docType = docMatch?.group(1)?.trim() ?? 'Документ';
 
-      final checkData = {
+      final alreadySaved = recent.any((entry) {
+        final decoded = jsonDecode(entry);
+        return decoded['type'] == docType && decoded['filePath'] != null;
+      });
+
+      if (alreadySaved) return;
+
+      final filePath = '${(await getTemporaryDirectory()).path}/saved_${DateTime.now().millisecondsSinceEpoch}.txt';
+      final file = File(filePath);
+      await file.writeAsString('📝 Оригинальный текст:\n$originalText\n\n💬 Рекомендация:\n$recommendation');
+
+      final formattedDate = DateFormat('dd MMMM yyyy, HH:mm', 'ru_RU').format(DateTime.now());
+
+      final newCheck = {
         'type': docType,
-        'date': DateTime.now().toString().substring(0, 16),
-        'hasRisk': null,
+        'date': formattedDate,
+        'hasRisk': widget.hasRisk ?? true,
         'filePath': filePath,
       };
 
-      recent.insert(0, jsonEncode(checkData));
+      recent.insert(0, jsonEncode(newCheck));
       await prefs.setStringList('recentChecks', recent.take(10).toList());
 
       if (!mounted) return;
@@ -205,14 +261,11 @@ class _ResultPageState extends State<ResultPage> {
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Результат сохранён'),
-          backgroundColor: Colors.green,
-        ),
+        const SnackBar(content: Text('Результат сохранён'), backgroundColor: Colors.green),
       );
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Ошибка сохранения: $e"), backgroundColor: Colors.red),
+        SnackBar(content: Text("Ошибка: $e"), backgroundColor: Colors.red),
       );
     }
   }

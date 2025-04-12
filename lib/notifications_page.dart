@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'services/notification_service.dart';
+import '../services/notification_service.dart';
 
 class NotificationsPage extends StatefulWidget {
   const NotificationsPage({super.key});
@@ -21,6 +21,17 @@ class _NotificationsPageState extends State<NotificationsPage> {
     super.initState();
     NotificationService.init();
     _loadPreferences();
+    _checkAndRequestPermission(); // 👈 системный запрос
+  }
+
+  Future<void> _checkAndRequestPermission() async {
+    final prefs = await SharedPreferences.getInstance();
+    final requested = prefs.getBool('notification_permission_requested') ?? false;
+
+    if (!requested) {
+      await NotificationService.requestSystemPermission();
+      await prefs.setBool('notification_permission_requested', true);
+    }
   }
 
   Future<void> _loadPreferences() async {
@@ -99,35 +110,62 @@ class _NotificationsPageState extends State<NotificationsPage> {
           children: [
             _buildNotificationTile(
               emoji: '📝',
-              title: 'Уведомления о новых результатах анализа',
+              title: 'Новые результаты анализа',
+              subtitle: 'Оповещение, когда готов результат анализа документа',
               value: resultNotifications,
-              onChanged: (val) => _onNotificationChange('resultNotifications', val),
+              keyPref: 'resultNotifications',
               scale: scale,
             ),
             const SizedBox(height: 12),
             _buildNotificationTile(
               emoji: '🤖',
               title: 'Советы от LegalMind',
+              subtitle: 'Юридические подсказки и разборы интересных случаев',
               value: legalMindTips,
-              onChanged: (val) => _onNotificationChange('legalMindTips', val),
+              keyPref: 'legalMindTips',
               scale: scale,
             ),
             const SizedBox(height: 12),
             _buildNotificationTile(
               emoji: '📰',
-              title: 'Новости и обновления приложения',
+              title: 'Новости и обновления',
+              subtitle: 'Выход новых функций и улучшений в приложении',
               value: appNews,
-              onChanged: (val) => _onNotificationChange('appNews', val),
+              keyPref: 'appNews',
               scale: scale,
             ),
             const SizedBox(height: 12),
             _buildNotificationTile(
               emoji: '📩',
               title: 'Email-рассылка',
+              subtitle: 'Получать полезные письма с юридическими лайфхаками',
               value: emailUpdates,
-              onChanged: (val) => _onNotificationChange('emailUpdates', val),
+              keyPref: 'emailUpdates',
               scale: scale,
             ),
+            const SizedBox(height: 30),
+            ElevatedButton.icon(
+              onPressed: () => NotificationService.showNotification(
+                'Тестовое уведомление',
+                'Это пример работы уведомлений',
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF800000),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              ),
+              icon: const Icon(Icons.notifications, color: Colors.white),
+              label: const Text(
+                "Показать тестовое уведомление",
+                style: TextStyle(
+                  fontFamily: 'DM Sans',
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+            )
           ],
         ),
       ),
@@ -137,38 +175,45 @@ class _NotificationsPageState extends State<NotificationsPage> {
   Widget _buildNotificationTile({
     required String emoji,
     required String title,
+    required String subtitle,
     required bool value,
-    required ValueChanged<bool> onChanged,
+    required String keyPref,
     required double scale,
   }) {
     return Container(
-      height: 52,
       decoration: BoxDecoration(
         border: Border.all(color: const Color(0xFF800000), width: 1),
         borderRadius: BorderRadius.circular(10 * scale),
         color: Colors.white,
       ),
-      padding: EdgeInsets.symmetric(horizontal: 16 * scale),
+      padding: EdgeInsets.symmetric(horizontal: 16 * scale, vertical: 12 * scale),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
+          Text(
+            emoji,
+            style: TextStyle(fontSize: 24 * scale),
+          ),
+          const SizedBox(width: 12),
           Expanded(
-            child: Row(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  emoji,
-                  style: TextStyle(fontSize: 20 * scale),
+                  title,
+                  style: TextStyle(
+                    fontFamily: 'DM Sans',
+                    fontSize: 14 * scale,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black,
+                  ),
                 ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    title,
-                    overflow: TextOverflow.ellipsis,  // Добавлено для предотвращения переполнения
-                    style: TextStyle(
-                      fontFamily: 'DM Sans',
-                      fontSize: 14 * scale,
-                      color: Colors.black,
-                    ),
+                const SizedBox(height: 4),
+                Text(
+                  subtitle,
+                  style: TextStyle(
+                    fontFamily: 'DM Sans',
+                    fontSize: 12 * scale,
+                    color: Colors.grey[600],
                   ),
                 ),
               ],
@@ -176,7 +221,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
           ),
           Switch(
             value: value,
-            onChanged: onChanged,
+            onChanged: (val) => _onNotificationChange(keyPref, val),
             activeColor: const Color(0xFF800000),
           ),
         ],

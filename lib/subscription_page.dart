@@ -1,13 +1,29 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
-class SubscriptionPage extends StatelessWidget {
+class SubscriptionPage extends StatefulWidget {
   const SubscriptionPage({super.key});
 
   @override
+  State<SubscriptionPage> createState() => _SubscriptionPageState();
+}
+
+class _SubscriptionPageState extends State<SubscriptionPage> {
+  int currentIndex = 0;
+  final PageController _pageController = PageController();
+
+  void _onTabTap(int index) {
+    setState(() => currentIndex = index);
+    _pageController.animateToPage(
+      index,
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeInOut,
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final scale = screenWidth / 360;
+    final scale = MediaQuery.of(context).size.width / 360;
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -16,127 +32,35 @@ class SubscriptionPage extends StatelessWidget {
         elevation: 0,
         leading: IconButton(
           onPressed: () => Navigator.pop(context),
-          icon: SvgPicture.asset('assets/back_button.svg', width: 24 * scale, height: 24 * scale),
+          icon: SvgPicture.asset('assets/back_button.svg', width: 24, height: 24),
         ),
         centerTitle: true,
-        title: Text(
+        title: const Text(
           'Подключить PRO',
           style: TextStyle(
             fontFamily: 'DM Sans',
-            fontSize: 16 * scale,
+            fontSize: 16,
             fontWeight: FontWeight.bold,
             color: Colors.black,
           ),
         ),
       ),
-      body: Padding(
-        padding: EdgeInsets.symmetric(horizontal: 20 * scale, vertical: 10 * scale),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Блок: Что входит в PRO
-            Text(
-              "✅ Что входит в PRO:",
-              style: TextStyle(
-                fontFamily: 'DM Sans',
-                fontSize: 15 * scale,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            SizedBox(height: 12 * scale),
-            _buildBullet("Расширенный юридический анализ", scale),
-            _buildBullet("Детализированные пояснения на основе законов", scale),
-            _buildBullet("Приоритетная обработка документов", scale),
-            _buildBullet("Юридические шаблоны и советы", scale),
-            SizedBox(height: 30 * scale),
-
-            // Блок: Подписка
-            Text(
-              "💳 Подписка:",
-              style: TextStyle(
-                fontFamily: 'DM Sans',
-                fontSize: 15 * scale,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            SizedBox(height: 12 * scale),
-            _buildPriceOption("Месяц", "199 ₽", scale),
-            SizedBox(height: 10 * scale),
-            _buildPriceOption("Год", "1490 ₽", scale),
-            SizedBox(height: 30 * scale),
-
-            // Кнопка оформить подписку
-            SizedBox(
-              width: double.infinity,
-              height: 52 * scale,
-              child: ElevatedButton(
-                onPressed: () {
-                  // TODO: оформить подписку
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF800000),
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                child: Text(
-                  'Оформить подписку',
-                  style: TextStyle(
-                    fontFamily: 'DM Sans',
-                    fontSize: 14 * scale,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ),
-            SizedBox(height: 20 * scale),
-
-            // Восстановить покупку
-            Center(
-              child: TextButton(
-                onPressed: () {
-                  // TODO: восстановить покупку
-                },
-                child: Text(
-                  "🧾 Уже есть подписка? Восстановить покупку",
-                  style: TextStyle(
-                    fontFamily: 'DM Sans',
-                    fontSize: 14 * scale,
-                    color: const Color(0xFF800000),
-                    decoration: TextDecoration.underline,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildBullet(String text, double scale) {
-    return Padding(
-      padding: EdgeInsets.only(bottom: 8 * scale),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      body: Column(
         children: [
-          Text(
-            "• ",
-            style: TextStyle(
-              fontSize: 18 * scale,
-              height: 1.4,
-            ),
-          ),
+          _buildHeaderInfo(),
+          const SizedBox(height: 10),
+          _buildFeatureCard(),
+          const SizedBox(height: 16),
+          _buildTabSwitcher(),
+          const SizedBox(height: 8),
           Expanded(
-            child: Text(
-              text,
-              style: TextStyle(
-                fontFamily: 'DM Sans',
-                fontSize: 14 * scale,
-                height: 1.4,
-              ),
+            child: PageView(
+              controller: _pageController,
+              onPageChanged: (index) => setState(() => currentIndex = index),
+              children: [
+                _buildSubscriptionOptions(),
+                _buildTokensOptions(),
+              ],
             ),
           ),
         ],
@@ -144,28 +68,249 @@ class SubscriptionPage extends StatelessWidget {
     );
   }
 
-  Widget _buildPriceOption(String period, String price, double scale) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(
-          period,
-          style: TextStyle(
-            fontFamily: 'DM Sans',
-            fontSize: 14 * scale,
-            fontWeight: FontWeight.normal,
+  Widget _buildHeaderInfo() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Column(
+        children: const [
+          Text(
+            "Окупаемость за 1 документ",
+            style: TextStyle(
+              fontFamily: 'DM Sans',
+              fontSize: 14,
+              color: Color(0xFF800000),
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFeatureCard() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: const Color(0xFFFDF3F3),
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.03),
+              blurRadius: 8,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: const [
+                Icon(Icons.workspace_premium_rounded, color: Color(0xFF800000)),
+                SizedBox(width: 8),
+                Text(
+                  "Что входит в PRO",
+                  style: TextStyle(
+                    fontFamily: 'DM Sans',
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF800000),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            _proFeature("⚖️ Расширенный анализ документов"),
+            _proFeature("📘 Пояснения на основе законов"),
+            _proFeature("🚀 Приоритетная обработка без ожидания"),
+            _proFeature("🧾 Шаблоны юридических документов"),
+            _proFeature("🔕 Без рекламы и отвлечений"),
+            _proFeature("♾️ Безлимит запросов (в годовой подписке)"),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTabSwitcher() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Container(
+        decoration: BoxDecoration(
+          color: const Color(0xFFF1F1F1),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Row(
+          children: [
+            _buildTab("Подписка", 0),
+            _buildTab("Запросы", 1),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTab(String label, int index) {
+    final isActive = currentIndex == index;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => _onTabTap(index),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          decoration: BoxDecoration(
+            color: isActive ? const Color(0xFF800000) : Colors.transparent,
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Center(
+            child: Text(
+              label,
+              style: TextStyle(
+                fontFamily: 'DM Sans',
+                fontWeight: FontWeight.bold,
+                fontSize: 14,
+                color: isActive ? Colors.white : Colors.black87,
+              ),
+            ),
           ),
         ),
-        Text(
-          price,
-          style: TextStyle(
-            fontFamily: 'DM Sans',
-            fontSize: 14 * scale,
-            fontWeight: FontWeight.bold,
-            color: Colors.black,
+      ),
+    );
+  }
+
+  Widget _buildSubscriptionOptions() {
+    return ListView(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      children: [
+        const SizedBox(height: 8),
+        _buildOptionTile("Месячная подписка", "199 ₽ / месяц (30 запросов)", () {}),
+        const SizedBox(height: 10),
+        _buildOptionTile("Годовая подписка", "1490 ₽ / год (безлимит)", () {}),
+        const SizedBox(height: 20),
+        _buildSubscribeButton(),
+        const SizedBox(height: 16),
+        TextButton(
+          onPressed: () {},
+          child: const Text(
+            "🧾 Уже есть подписка? Восстановить",
+            style: TextStyle(
+              fontFamily: 'DM Sans',
+              fontSize: 14,
+              color: Color(0xFF800000),
+              decoration: TextDecoration.underline,
+            ),
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildTokensOptions() {
+    return ListView(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      children: [
+        const SizedBox(height: 8),
+        _buildOptionTile("10 запросов к LegalMind", "99 ₽", () {}),
+        const SizedBox(height: 10),
+        _buildOptionTile("30 запросов", "199 ₽", () {}),
+        const SizedBox(height: 10),
+        _buildOptionTile("50 запросов", "279 ₽", () {}),
+        const SizedBox(height: 10),
+        _buildOptionTile("100 запросов", "449 ₽", () {}),
+        const SizedBox(height: 20),
+        _buildSubscribeButton(text: "Купить запросы"),
+      ],
+    );
+  }
+
+  Widget _buildOptionTile(String title, String subtitle, VoidCallback onTap) {
+    return Material(
+      color: Colors.white,
+      elevation: 1,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0xFF800000), width: 1),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Flexible(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(title,
+                        style: const TextStyle(
+                          fontFamily: 'DM Sans',
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                        )),
+                    const SizedBox(height: 4),
+                    Text(
+                      subtitle,
+                      style: const TextStyle(
+                        fontFamily: 'DM Sans',
+                        fontSize: 13,
+                        color: Colors.black54,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(Icons.arrow_forward_ios, size: 16, color: Color(0xFF800000)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSubscribeButton({String text = "Оформить подписку"}) {
+    return SizedBox(
+      width: double.infinity,
+      height: 52,
+      child: ElevatedButton(
+        onPressed: () {
+          // TODO: подключить покупку
+        },
+        style: ElevatedButton.styleFrom(
+          backgroundColor: const Color(0xFF800000),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+        child: Text(
+          text,
+          style: const TextStyle(
+            fontFamily: 'DM Sans',
+            fontSize: 14,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
+        ),
+      ),
+    );
+  }
+
+  static Widget _proFeature(String text) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Text(
+        text,
+        style: const TextStyle(
+          fontFamily: 'DM Sans',
+          fontSize: 14,
+          color: Colors.black87,
+        ),
+      ),
     );
   }
 }
