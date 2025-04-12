@@ -9,7 +9,6 @@ import 'login_page.dart';
 import 'security_page.dart';
 import 'personal_data_page.dart';
 import 'notifications_page.dart';
-import 'save_route_page.dart';
 import 'subscription_page.dart';
 
 class ProfilePage extends StatefulWidget {
@@ -193,8 +192,6 @@ class _ProfilePageState extends State<ProfilePage> {
             _buildProfileButton("Безопасность и вход", const SecurityPage(), scale),
             SizedBox(height: 12 * scale),
             _buildProfileButton("Уведомления", const NotificationsPage(), scale),
-            SizedBox(height: 12 * scale),
-            _buildProfileButton("Путь сохранения", const SaveRoutePage(), scale),
             SizedBox(height: 12 * scale),
             _buildProfileButton("Подключить PRO версию", const SubscriptionPage(), scale),
           ],
