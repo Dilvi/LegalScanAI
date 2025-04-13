@@ -1,7 +1,8 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import '../services/api_service.dart';
-import 'package:flutter/services.dart'; // Для копирования в буфер обмена
+import 'package:flutter/services.dart';
 
 class ChatPage extends StatefulWidget {
   const ChatPage({super.key});
@@ -13,23 +14,54 @@ class ChatPage extends StatefulWidget {
 class _ChatPageState extends State<ChatPage> {
   final TextEditingController _controller = TextEditingController();
   final List<Map<String, String>> _messages = []; // {'role': 'user'/'bot', 'text': '...'}
-  bool _isLoading = false; // Флаг для отображения индикатора
+  bool _isLoading = false;
+  int _dotCount = 1;
+
+  @override
+  void initState() {
+    super.initState();
+
+    // 👋 Приветственное сообщение
+    _messages.add({
+      'role': 'bot',
+      'text': """
+**👋 Добро пожаловать в LegalMind!**
+
+Я — ваш виртуальный адвокат и помощник по правам. Я помогу вам:
+
+- 🚓 Понять, что делать при задержании;
+- 🛂 Узнать, если сотрудник превышает полномочия;
+- 🚌 Защитить свои права как пассажира;
+- 🚗 Правильно себя вести при остановке ГИБДД;
+- ⚖️ Получить советы на основе Конституции и Гражданского кодекса РФ.
+
+Просто задайте свой вопрос — и я помогу вам разобраться в ситуации.
+"""
+    });
+
+
+    // ⏳ Анимация точек
+    Timer.periodic(const Duration(milliseconds: 500), (timer) {
+      if (!mounted || !_isLoading) return;
+      setState(() {
+        _dotCount = (_dotCount % 3) + 1;
+      });
+    });
+  }
 
   void _sendMessage(String text) async {
     if (text.trim().isEmpty) return;
 
     setState(() {
-      // Добавляем сообщение пользователя
       _messages.add({'role': 'user', 'text': text});
-      _controller.clear(); // Очистка поля после отправки
-      _isLoading = true; // Включаем индикатор загрузки
+      _controller.clear();
+      _isLoading = true;
     });
 
-    // Отправляем сообщение на сервер через API
     final botReply = await ApiService.sendMessage(text);
 
     setState(() {
-      _isLoading = false; // Отключаем индикатор загрузки
+      _isLoading = false;
       _messages.add({'role': 'bot', 'text': botReply});
     });
   }
@@ -60,33 +92,18 @@ class _ChatPageState extends State<ChatPage> {
       ),
       body: Column(
         children: [
-          Padding(
-            padding: EdgeInsets.symmetric(horizontal: 16 * scale, vertical: 12 * scale),
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                'Задайте свой вопрос — LegalMind готов помочь!',
-                style: TextStyle(
-                  fontSize: 12 * scale,
-                  color: Colors.grey[600],
-                  fontFamily: 'DM Sans',
-                ),
-              ),
-            ),
-          ),
           Expanded(
             child: ListView.builder(
               reverse: true,
               padding: EdgeInsets.all(16 * scale),
-              itemCount: _messages.length + (_isLoading ? 1 : 0), // Учитываем индикатор
+              itemCount: _messages.length + (_isLoading ? 1 : 0),
               itemBuilder: (context, index) {
                 if (_isLoading && index == 0) {
-                  // Индикатор загрузки
                   return Align(
                     alignment: Alignment.centerLeft,
                     child: Container(
                       margin: EdgeInsets.symmetric(vertical: 6 * scale),
-                      padding: EdgeInsets.symmetric(horizontal: 12 * scale, vertical: 10 * scale),
+                      padding: EdgeInsets.all(12 * scale),
                       constraints: BoxConstraints(maxWidth: 280 * scale),
                       decoration: BoxDecoration(
                         color: const Color(0xFFF5F5F5),
@@ -94,16 +111,20 @@ class _ChatPageState extends State<ChatPage> {
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Row(
+                        mainAxisSize: MainAxisSize.min,
                         children: [
-                          SizedBox(
+                          const SizedBox(
                             width: 20,
                             height: 20,
-                            child: Image.asset("assets/load.gif"),
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Color(0xFF800000),
+                            ),
                           ),
                           const SizedBox(width: 8),
-                          const Text(
-                            'Генерируем ответ...',
-                            style: TextStyle(
+                          Text(
+                            'Генерируем ответ${'.' * _dotCount}',
+                            style: const TextStyle(
                               fontFamily: 'DM Sans',
                               fontSize: 14,
                               color: Colors.black,

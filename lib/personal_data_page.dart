@@ -170,7 +170,7 @@ class _PersonalDataPageState extends State<PersonalDataPage> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return const LoadPage();
+      return const LoadPage(loadingText: "Соединение с сервером");
     }
 
     if (_hasError) {

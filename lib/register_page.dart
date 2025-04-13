@@ -27,8 +27,10 @@ class _RegisterPageState extends State<RegisterPage> {
 
     try {
       User? user = await AuthService().register(email, password, phone);
+
+      if (!mounted) return;
+
       if (user != null) {
-        print("Пользователь успешно зарегистрирован: ${user.email}");
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (context) => const HomePage()),
@@ -36,10 +38,29 @@ class _RegisterPageState extends State<RegisterPage> {
       } else {
         _showError("Не удалось создать аккаунт. Проверьте данные.");
       }
+    } on FirebaseAuthException catch (e) {
+      if (!mounted) return;
+      String errorMsg;
+      switch (e.code) {
+        case 'email-already-in-use':
+          errorMsg = 'Этот email уже используется.';
+          break;
+        case 'invalid-email':
+          errorMsg = 'Неверный формат email.';
+          break;
+        case 'weak-password':
+          errorMsg = 'Пароль слишком слабый.';
+          break;
+        default:
+          errorMsg = 'Ошибка регистрации: ${e.message}';
+      }
+      _showError(errorMsg);
     } catch (e) {
-      _showError("Ошибка при регистрации: ${e.toString()}");
+      if (!mounted) return;
+      _showError("Неизвестная ошибка: $e");
     }
   }
+
 
 
 
