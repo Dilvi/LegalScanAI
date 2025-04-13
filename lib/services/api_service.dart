@@ -5,7 +5,7 @@ import 'package:mime/mime.dart'; // Для определения MIME-типа
 import 'package:http_parser/http_parser.dart'; // Для работы с MediaType
 
 class ApiService {
-  static const String _baseUrl = "http://localhost:8000"; // Локальный сервер через ADB
+  static const String _baseUrl = "http://95.165.74.131:8000";
 
   // 🔍 Анализ текста
   static Future<Map<String, dynamic>> analyzeText(String text) async {

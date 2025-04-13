@@ -199,25 +199,133 @@ class _ResultPageState extends State<ResultPage> {
   Future<void> _shareResult() async {
     try {
       final directory = await getTemporaryDirectory();
-      final filePath = '${directory.path}/shared_result_${DateTime.now().millisecondsSinceEpoch}.txt';
+      final filePath = '${directory.path}/shared_result_${DateTime.now().millisecondsSinceEpoch}.html';
       final file = File(filePath);
 
       final originalText = widget.originalText ?? 'Текст недоступен';
       final match = RegExp(r'💬 Рекомендация от LegalScanAI:\s*\n([\s\S]+)').firstMatch(widget.analyzedText);
       final recommendation = match?.group(1)?.trim() ?? 'Рекомендация не найдена';
 
-      await file.writeAsString(
-        '📝 Оригинальный текст:\n$originalText\n\n💬 Рекомендация:\n$recommendation',
+      // HTML-шаблон
+      final htmlContent = '''
+  <!DOCTYPE html>
+  <html lang="ru">
+  <head>
+    <meta charset="UTF-8">
+    <title>Результат анализа</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        padding: 20px;
+        background-color: #ffffff;
+        color: #000000;
+        position: relative;
+      }
+  
+      h2 {
+        color: #800000;
+        margin-top: 24px;
+      }
+  
+      .original, .recommendation {
+        white-space: pre-wrap;
+        line-height: 1.5;
+        font-size: 16px;
+      }
+  
+      .recommendation {
+        background-color: #f7f7f7;
+        border-left: 4px solid #800000;
+        padding: 12px;
+        margin-top: 16px;
+      }
+  
+      .watermark-grid {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        z-index: 0;
+        pointer-events: none;
+        user-select: none;
+        background-image: repeating-linear-gradient(
+          45deg,
+          rgba(128, 0, 0, 0.03) 0,
+          rgba(128, 0, 0, 0.03) 1em,
+          transparent 1em,
+          transparent 3em
+        ),
+        repeating-linear-gradient(
+          -45deg,
+          rgba(128, 0, 0, 0.03) 0,
+          rgba(128, 0, 0, 0.03) 1em,
+          transparent 1em,
+          transparent 3em
+        );
+        content: "";
+      }
+  
+      .watermark-texts {
+        position: fixed;
+        top: 0;
+        left: 0;
+        z-index: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+        user-select: none;
+      }
+  
+      .watermark-text {
+        position: absolute;
+        color: rgba(128, 0, 0, 0.05);
+        font-size: 16px;
+        transform: rotate(-30deg);
+      }
+  
+      .content {
+        position: relative;
+        z-index: 1;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="watermark-grid"></div>
+    <div class="watermark-texts">
+      ${List.generate(100, (i) {
+          final top = (i ~/ 10) * 80;
+          final left = (i % 10) * 80;
+          return '<div class="watermark-text" style="top: ${top}px; left: ${left}px;">LegalScanAI</div>';
+        }).join()}
+    </div>
+  
+    <div class="content">
+      <h2>📝 Оригинальный текст:</h2>
+      <div class="original">$originalText</div>
+  
+      <h2>💬 Рекомендация от LegalScanAI:</h2>
+      <div class="recommendation">$recommendation</div>
+    </div>
+  </body>
+  </html>
+  ''';
+
+
+
+      await file.writeAsString(htmlContent, encoding: utf8);
+
+      await Share.shareXFiles(
+        [XFile(file.path)],
+        text: 'Результат анализа документа (HTML)',
       );
-
-      await Share.shareXFiles([XFile(file.path)], text: 'Результат анализа документа');
-
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Ошибка при отправке: $e'), backgroundColor: Colors.red),
       );
     }
   }
+
 
 
   void _handleAdvancedAnalysis() async {

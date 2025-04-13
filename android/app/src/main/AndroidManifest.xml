@@ -6,7 +6,7 @@
     <uses-permission android:name="android.permission.INTERNET" />
 
     <application
-        android:label="legal_scan_ai"
+        android:label="LegalScanAI"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
 

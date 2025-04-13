@@ -1,0 +1,2 @@
+C:/LegalScanAI_dev/android/app/.cxx/RelWithDebInfo/22h4c2ib/arm64-v8a/CMakeFiles/edit_cache.dir
+C:/LegalScanAI_dev/android/app/.cxx/RelWithDebInfo/22h4c2ib/arm64-v8a/CMakeFiles/rebuild_cache.dir

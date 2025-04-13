@@ -65,7 +65,7 @@ class _ScanDocumentPageState extends State<ScanDocumentPage> {
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (context) => const LoadPage(),
+          builder: (context) => const LoadPage(loadingText: "Распознаём изображение"),
         ),
       );
 
@@ -97,7 +97,7 @@ class _ScanDocumentPageState extends State<ScanDocumentPage> {
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (context) => const LoadPage(),
+          builder: (context) => const LoadPage(loadingText: "Открываем галерею"),
         ),
       );
 
