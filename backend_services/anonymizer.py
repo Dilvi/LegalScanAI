@@ -1,20 +1,125 @@
 import re
+import yaml
+from pathlib import Path
+from collections import defaultdict
+
+# spaCy используется как fallback
+try:
+    import spacy
+    _spacy_model = spacy.load("ru_core_news_lg")
+except Exception:
+    _spacy_model = None
+
 
 class Anonymizer:
-    def __init__(self):
-        pass
+    """
+    Единый модуль анонимизации текста по типу документа.
+    1) Загружает YAML с паттернами для данного doc_type.
+    2) Извлекает сущности через regex.
+    3) Дополняет spaCy при необходимости.
+    4) Заменяет найденные значения на маркеры [[LABEL]].
+    """
 
+    def __init__(self, doc_type: str):
+        self.doc_type = doc_type
+        self.rules = self._load_rules(doc_type)
+        self.use_spacy = _spacy_model is not None
+
+    # ------------------------------------------------------------
+    def _load_rules(self, doc_type: str) -> dict:
+        """Загружает YAML-файл с правилами для данного типа документа"""
+        base_dir = Path(__file__).resolve().parent
+        rules_path = base_dir / "anonymizer_rules" / f"{doc_type}.yaml"
+        if not rules_path.exists():
+            return {}
+        with open(rules_path, "r", encoding="utf-8") as f:
+            return yaml.safe_load(f)
+
+    # ------------------------------------------------------------
+    def extract_entities(self, text: str):
+        """
+        Извлекает сущности на основе правил + опционально spaCy.
+        Возвращает список словарей вида:
+        {"type": "PER", "label": "PER_1", "text": "Иванов Иван Иванович"}
+        """
+        entities_raw = []
+
+        # 1. Правила из YAML
+        if self.rules and "patterns" in self.rules:
+            for entry in self.rules["patterns"]:
+                ent_type = entry["type"]
+                for pattern in entry["regex"]:
+                    matches = re.findall(pattern, text, re.IGNORECASE)
+                    for match in matches:
+                        if isinstance(match, tuple):
+                            match = " ".join(match).strip()
+                        entities_raw.append((ent_type, match.strip()))
+
+        # 2. fallback — spaCy (если включен)
+        if self.use_spacy and self.rules.get("enable_spacy_fallback", True):
+            doc = _spacy_model(text)
+            for ent in doc.ents:
+                ent_type = self._map_spacy_label(ent.label_)
+                if ent_type:
+                    entities_raw.append((ent_type, ent.text.strip()))
+
+        # 3. Удаление дубликатов и нумерация
+        seen = defaultdict(set)
+        counter = defaultdict(int)
+        final_entities = []
+
+        for ent_type, ent_text in sorted(entities_raw, key=lambda x: len(x[1]), reverse=True):
+            norm = ent_text.lower()
+            if norm in seen[ent_type]:
+                continue
+            seen[ent_type].add(norm)
+            counter[ent_type] += 1
+            label = f"{ent_type}_{counter[ent_type]}" if counter[ent_type] > 1 else ent_type
+            final_entities.append({
+                "type": ent_type,
+                "label": label,
+                "text": ent_text
+            })
+
+        return final_entities
+
+    # ------------------------------------------------------------
     def anonymize(self, text: str, entities: list):
-        """
-        Заменяет личные данные в тексте на уникальные метки (например: [[PER_1]], [[ADDRESS_2]]).
-        """
+        """Заменяет найденные сущности на [[LABEL]]"""
         anonymized_text = text
-        # Сортировка по длине текста, чтобы избежать перекрытий
-        entities = sorted(entities, key=lambda x: len(x['text']), reverse=True)
-
         for entity in entities:
-            placeholder = f"[[{entity['label']}]]"
-            # Безопасная замена (например, чтобы не заменить одно и то же несколько раз)
-            anonymized_text = re.sub(re.escape(entity['text']), placeholder, anonymized_text)
-
+            anonymized_text = re.sub(
+                re.escape(entity['text']),
+                f"[[{entity['label']}]]",
+                anonymized_text
+            )
         return anonymized_text
+
+    # ------------------------------------------------------------
+    def run(self, text: str):
+        """
+        Полный цикл анонимизации:
+        - извлечение сущностей
+        - замена на маркеры
+        - возврат анонимизированного текста и списка сущностей
+        """
+        entities = self.extract_entities(text)
+        anonymized_text = self.anonymize(text, entities)
+        return {
+            "doc_type": self.doc_type,
+            "anonymized_text": anonymized_text,
+            "entities": entities
+        }
+
+    # ------------------------------------------------------------
+    @staticmethod
+    def _map_spacy_label(label: str) -> str:
+        """Маппинг spaCy label → наши типы"""
+        mapping = {
+            "PER": "PER",
+            "LOC": "ADDRESS",
+            "ORG": "ORG",
+            "MONEY": "MONEY",
+            "DATE": "DATE",
+        }
+        return mapping.get(label, None)

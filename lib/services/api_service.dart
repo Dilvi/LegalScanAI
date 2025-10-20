@@ -1,21 +1,36 @@
-import 'dart:convert'; // Для работы с JSON
-// Для работы с файлами
-import 'package:http/http.dart' as http; // Для выполнения HTTP-запросов
-import 'package:mime/mime.dart'; // Для определения MIME-типа
-import 'package:http_parser/http_parser.dart'; // Для работы с MediaType
+import 'dart:convert';
+import 'dart:io';
+import 'package:http/http.dart' as http;
+import 'package:mime/mime.dart';
+import 'package:http_parser/http_parser.dart';
 
 class ApiService {
-  static const String _baseUrl = "http://95.165.74.131:8000";
+  // 📡 — поставь свой IP или домен сервера FastAPI
+  static const String _baseUrl = "http://10.0.2.2:8000";
+  static const Map<String, String> _headers = {
+    "Content-Type": "application/json; charset=utf-8",
+  };
 
-  // 🔍 Анализ текста
-  static Future<Map<String, dynamic>> analyzeText(String text) async {
+  /// =======================
+  /// 📝 Анализ текста
+  /// =======================
+  static Future<Map<String, dynamic>> analyzeText(
+      String text, {
+        required String docType,
+      }) async {
     final url = Uri.parse("$_baseUrl/analyze");
+
     try {
-      final response = await http.post(
+      final response = await http
+          .post(
         url,
-        headers: {"Content-Type": "application/json"},
-        body: jsonEncode({"text": text}),
-      );
+        headers: _headers,
+        body: jsonEncode({
+          "text": text,
+          "docType": docType,
+        }),
+      )
+          .timeout(const Duration(seconds: 30)); // ⏳ таймаут
 
       if (response.statusCode == 200) {
         final data = jsonDecode(utf8.decode(response.bodyBytes));
@@ -24,58 +39,95 @@ class ApiService {
           'hasRisk': data['has_risk'] ?? false,
         };
       } else {
-        throw Exception("Ошибка сервера: ${response.statusCode}");
+        throw HttpException(
+            "Ошибка сервера (${response.statusCode}): ${response.reasonPhrase}");
       }
+    } on SocketException {
+      throw Exception("❌ Нет подключения к серверу");
+    } on HttpException catch (e) {
+      throw Exception("❌ $e");
+    } on FormatException {
+      throw Exception("❌ Некорректный формат ответа от сервера");
     } catch (e) {
-      throw Exception("Ошибка подключения: $e");
+      throw Exception("❌ Неизвестная ошибка: $e");
     }
   }
 
-
-  // 📷 Анализ изображения
-  static Future<String> analyzeImage(String imagePath) async {
+  /// =======================
+  /// 📸 Анализ изображения
+  /// =======================
+  static Future<String> analyzeImage(
+      String imagePath, {
+        required String docType,
+      }) async {
     final url = Uri.parse("$_baseUrl/analyze-image");
+
     try {
       var request = http.MultipartRequest('POST', url);
-      String mimeType = lookupMimeType(imagePath) ?? 'image/jpeg';
+      request.fields['docType'] = docType;
+
+      // 📌 Определяем MIME-тип
+      final mimeType = lookupMimeType(imagePath) ?? 'image/jpeg';
+      final mimeParts = mimeType.split('/');
+
       request.files.add(await http.MultipartFile.fromPath(
         'file',
         imagePath,
-        contentType: MediaType(mimeType.split('/')[0], mimeType.split('/')[1]),
+        contentType: MediaType(mimeParts[0], mimeParts[1]),
       ));
 
-      var response = await request.send();
-
-      if (response.statusCode == 200) {
-        final responseData = await http.Response.fromStream(response);
-        final data = jsonDecode(utf8.decode(responseData.bodyBytes)); // Используем utf8.decode
-        return data['result'] ?? "Нет результата";
-      } else {
-        return "Ошибка сервера: ${response.statusCode}";
-      }
-    } catch (e) {
-      return "Ошибка при распознавании изображения: $e";
-    }
-  }
-
-  // 💬 Отправка сообщения в чат LegalMind
-  static Future<String> sendMessage(String text) async {
-    final url = Uri.parse("$_baseUrl/chat");
-    try {
-      final response = await http.post(
-        url,
-        headers: {"Content-Type": "application/json"},
-        body: jsonEncode({"text": text}),
-      );
+      var streamedResponse =
+      await request.send().timeout(const Duration(seconds: 60));
+      var response = await http.Response.fromStream(streamedResponse);
 
       if (response.statusCode == 200) {
         final data = jsonDecode(utf8.decode(response.bodyBytes));
-        return data['response']?.toString() ?? "Нет ответа"; // Исправлено
+        return data['result'] ?? "Нет результата";
       } else {
-        return "Ошибка сервера: ${response.statusCode}";
+        throw HttpException(
+            "Ошибка сервера (${response.statusCode}): ${response.reasonPhrase}");
       }
+    } on SocketException {
+      return "❌ Нет подключения к серверу";
+    } on HttpException catch (e) {
+      return "❌ $e";
+    } on FormatException {
+      return "❌ Некорректный формат ответа от сервера";
     } catch (e) {
-      return "Ошибка подключения: $e";
+      return "❌ Неизвестная ошибка: $e";
+    }
+  }
+
+  /// =======================
+  /// 💬 Чат (LegalMind)
+  /// =======================
+  static Future<String> sendMessage(String text) async {
+    final url = Uri.parse("$_baseUrl/chat");
+
+    try {
+      final response = await http
+          .post(
+        url,
+        headers: _headers,
+        body: jsonEncode({"text": text}),
+      )
+          .timeout(const Duration(seconds: 30));
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(utf8.decode(response.bodyBytes));
+        return data['response']?.toString() ?? "Нет ответа";
+      } else {
+        throw HttpException(
+            "Ошибка сервера (${response.statusCode}): ${response.reasonPhrase}");
+      }
+    } on SocketException {
+      return "❌ Нет подключения к серверу";
+    } on HttpException catch (e) {
+      return "❌ $e";
+    } on FormatException {
+      return "❌ Некорректный формат ответа от сервера";
+    } catch (e) {
+      return "❌ Неизвестная ошибка: $e";
     }
   }
 }

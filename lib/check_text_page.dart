@@ -8,7 +8,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 
 class CheckTextPage extends StatefulWidget {
-  const CheckTextPage({super.key});
+  final String docType; // ✅ добавлено
+
+  const CheckTextPage({super.key, required this.docType});
 
   @override
   _CheckTextPageState createState() => _CheckTextPageState();
@@ -42,9 +44,9 @@ class _CheckTextPageState extends State<CheckTextPage> {
             Navigator.pop(context);
           },
         ),
-        title: const Text(
-          "Проверить текст",
-          style: TextStyle(
+        title: Text(
+          "Проверить текст • ${widget.docType}", // ✅ показываем выбранный тип
+          style: const TextStyle(
             fontFamily: 'DM Sans',
             fontSize: 18,
             fontWeight: FontWeight.bold,
@@ -123,7 +125,12 @@ class _CheckTextPageState extends State<CheckTextPage> {
             );
 
             try {
-              final response = await ApiService.analyzeText(inputText);
+              // ✅ Передаём docType в запрос к API
+              final response = await ApiService.analyzeText(
+                inputText,
+                docType: widget.docType,
+              );
+
               final analyzedResult = response['result'];
               final hasRisk = response['hasRisk'] ?? false;
 
@@ -135,7 +142,8 @@ class _CheckTextPageState extends State<CheckTextPage> {
                   builder: (context) => ResultPage(
                     analyzedText: analyzedResult,
                     originalText: inputText,
-                    hasRisk: hasRisk, // 👈 тоже передаём, чтобы сохранить позже
+                    hasRisk: hasRisk,
+                    docType: widget.docType, // ✅ передаём дальше
                   ),
                 ),
               );
