@@ -7,7 +7,9 @@ import '../services/api_service.dart';
 import 'load.dart';
 
 class ScanDocumentPage extends StatefulWidget {
-  const ScanDocumentPage({super.key});
+  final String docType; // ✅ добавлено
+
+  const ScanDocumentPage({super.key, required this.docType});
 
   @override
   _ScanDocumentPageState createState() => _ScanDocumentPageState();
@@ -17,7 +19,7 @@ class _ScanDocumentPageState extends State<ScanDocumentPage> {
   CameraController? _cameraController;
   bool _isFlashOn = false;
   bool _isCameraInitialized = false;
-  final bool _isProcessing = false; // Флаг для отображения процесса
+  final bool _isProcessing = false; // Флаг отображения процесса
   late List<CameraDescription> cameras;
 
   @override
@@ -38,9 +40,9 @@ class _ScanDocumentPageState extends State<ScanDocumentPage> {
       setState(() {
         _isCameraInitialized = true;
       });
-      print("Камера инициализирована успешно.");
+      print("📸 Камера инициализирована успешно.");
     } catch (e) {
-      print("Ошибка инициализации камеры: $e");
+      print("❌ Ошибка инициализации камеры: $e");
     }
   }
 
@@ -61,7 +63,6 @@ class _ScanDocumentPageState extends State<ScanDocumentPage> {
 
   Future<void> _captureAndAnalyze(BuildContext context) async {
     try {
-      // Показ страницы загрузки
       Navigator.push(
         context,
         MaterialPageRoute(
@@ -69,31 +70,29 @@ class _ScanDocumentPageState extends State<ScanDocumentPage> {
         ),
       );
 
-      print("Начало процесса фотографирования...");
+      print("📸 Начало процесса фотографирования...");
       final XFile image = await _cameraController!.takePicture();
-      print("Фотография сделана: ${image.path}");
+      print("✅ Фотография сделана: ${image.path}");
 
-      // Отправка на сервер для анализа
-      final result = await ApiService.analyzeImage(image.path);
-      print("Распознавание завершено, результат получен.");
+      // ✅ Передаём docType в анализ
+      final result = await ApiService.analyzeImage(
+        image.path,
+        docType: widget.docType,
+      );
 
-      // Закрытие страницы загрузки перед показом результата
       Navigator.pop(context);
       _navigateToResult(context, result);
     } catch (e) {
-      print("Ошибка при съемке или распознавании: $e");
+      print("❌ Ошибка при съёмке или распознавании: $e");
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("Ошибка: $e")),
       );
-
-      // Закрытие страницы загрузки в случае ошибки
       Navigator.pop(context);
     }
   }
 
   Future<void> _pickImageFromGallery(BuildContext context) async {
     try {
-      // Показ страницы загрузки
       Navigator.push(
         context,
         MaterialPageRoute(
@@ -101,29 +100,28 @@ class _ScanDocumentPageState extends State<ScanDocumentPage> {
         ),
       );
 
-      print("Открытие галереи...");
+      print("🖼 Открытие галереи...");
       final pickedFile = await ImagePicker().pickImage(source: ImageSource.gallery);
       if (pickedFile != null) {
-        print("Изображение выбрано: ${pickedFile.path}");
+        print("✅ Изображение выбрано: ${pickedFile.path}");
 
-        // Отправка на сервер для анализа
-        final result = await ApiService.analyzeImage(pickedFile.path);
-        print("Распознавание завершено, результат получен.");
+        // ✅ Передаём docType в анализ
+        final result = await ApiService.analyzeImage(
+          pickedFile.path,
+          docType: widget.docType,
+        );
 
-        // Закрытие страницы загрузки перед показом результата
         Navigator.pop(context);
         _navigateToResult(context, result);
       } else {
-        print("Изображение не выбрано.");
+        print("⚠️ Изображение не выбрано.");
         Navigator.pop(context);
       }
     } catch (e) {
-      print("Ошибка при выборе изображения: $e");
+      print("❌ Ошибка при выборе изображения: $e");
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("Ошибка: $e")),
       );
-
-      // Закрытие страницы загрузки в случае ошибки
       Navigator.pop(context);
     }
   }
@@ -132,7 +130,10 @@ class _ScanDocumentPageState extends State<ScanDocumentPage> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => ResultPage(analyzedText: result),
+        builder: (context) => ResultPage(
+          analyzedText: result,
+          docType: widget.docType, // ✅ передаём тип документа
+        ),
       ),
     );
   }
@@ -149,9 +150,9 @@ class _ScanDocumentPageState extends State<ScanDocumentPage> {
             Navigator.pop(context);
           },
         ),
-        title: const Text(
-          "Сканирование документа",
-          style: TextStyle(
+        title: Text(
+          "Сканирование • ${widget.docType}", // ✅ отображаем выбранный тип
+          style: const TextStyle(
             fontFamily: 'DM Sans',
             fontSize: 18,
             fontWeight: FontWeight.bold,

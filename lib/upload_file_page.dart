@@ -8,7 +8,9 @@ import '../services/api_service.dart';
 import 'package:docx_to_text/docx_to_text.dart';
 
 class UploadFilePage extends StatefulWidget {
-  const UploadFilePage({super.key});
+  final String docType; // ✅ добавлено
+
+  const UploadFilePage({super.key, required this.docType});
 
   @override
   State<UploadFilePage> createState() => _UploadFilePageState();
@@ -23,6 +25,7 @@ class _UploadFilePageState extends State<UploadFilePage> {
 
   Future<void> _pickAndAnalyzeFile() async {
     try {
+      // 📁 Выбор файла
       FilePickerResult? result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
         allowedExtensions: ['txt', 'docx'],
@@ -37,6 +40,7 @@ class _UploadFilePageState extends State<UploadFilePage> {
       final file = File(result.files.single.path!);
       String text = '';
 
+      // 📝 Извлечение текста в зависимости от формата
       if (file.path.endsWith('.txt')) {
         text = await file.readAsString();
       } else if (file.path.endsWith('.docx')) {
@@ -48,9 +52,15 @@ class _UploadFilePageState extends State<UploadFilePage> {
         throw Exception("Не удалось извлечь текст из файла");
       }
 
+      // ⏳ Показ экрана загрузки
       Navigator.push(context, MaterialPageRoute(builder: (_) => const LoadPage()));
 
-      final response = await ApiService.analyzeText(text);
+      // 🧠 Отправляем текст на анализ вместе с docType
+      final response = await ApiService.analyzeText(
+        text,
+        docType: widget.docType,
+      );
+
       final resultText = response['result'];
       final hasRisk = response['hasRisk'] ?? false;
 
@@ -63,13 +73,14 @@ class _UploadFilePageState extends State<UploadFilePage> {
               analyzedText: resultText,
               originalText: text,
               hasRisk: hasRisk,
+              docType: widget.docType, // ✅ передаём тип в ResultPage
             ),
           ),
         );
       }
     } catch (e) {
       if (mounted) {
-        Navigator.pop(context); // закрываем LoadPage
+        Navigator.pop(context); // закрываем LoadPage, если открыт
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Ошибка загрузки файла: $e'),

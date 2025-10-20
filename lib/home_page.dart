@@ -1,4 +1,3 @@
-// В начале файла
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -12,6 +11,7 @@ import 'chat_page.dart';
 import 'scan_document_page.dart';
 import 'upload_file_page.dart';
 import 'saved_check.dart';
+import 'file_type_choice_page.dart'; // ✅ новый экран выбора типа документа
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -105,6 +105,19 @@ class _HomePageState extends State<HomePage> {
       isSelectionMode = false;
       selectedIndexes.clear();
     });
+  }
+
+  Future<void> _navigateWithDocType(Widget Function(String) pageBuilder) async {
+    final selectedType = await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const FileTypeChoicePage()),
+    );
+    if (selectedType != null && selectedType is String) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => pageBuilder(selectedType)),
+      );
+    }
   }
 
   @override
@@ -217,8 +230,7 @@ class _HomePageState extends State<HomePage> {
                 onRefresh: _refresh,
                 color: const Color(0xFF800000),
                 child: ListView.separated(
-                  padding:
-                  const EdgeInsets.only(bottom: 230, left: 20, right: 20),
+                  padding: const EdgeInsets.only(bottom: 230, left: 20, right: 20),
                   itemCount: recentChecks.length,
                   separatorBuilder: (context, index) =>
                   const Divider(height: 1, color: Color(0xFFE0E0E0)),
@@ -248,8 +260,7 @@ class _HomePageState extends State<HomePage> {
                               print('❌ Файл не найден: ${item['filePath']}');
                               ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(
-                                  content:
-                                  Text("Файл не найден на устройстве"),
+                                  content: Text("Файл не найден на устройстве"),
                                 ),
                               );
                             }
@@ -274,7 +285,7 @@ class _HomePageState extends State<HomePage> {
                                 height: 45,
                               ),
                               if (hasFile)
-                                Positioned(
+                                const Positioned(
                                   right: 0,
                                   bottom: 0,
                                   child: Icon(Icons.check_circle,
@@ -361,29 +372,23 @@ class _HomePageState extends State<HomePage> {
                 _buildIconButton(
                   label: "Проверить\nтекст",
                   iconPath: "assets/check_text_icon.svg",
-                  onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const CheckTextPage()),
+                  onTap: () => _navigateWithDocType(
+                        (docType) => CheckTextPage(docType: docType),
                   ),
                 ),
                 _buildIconButton(
                   label: "Сканировать\nдокумент",
                   iconPath: "assets/scan_doc_icon.svg",
-                  onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (_) => const ScanDocumentPage()),
+                  onTap: () => _navigateWithDocType(
+                        (docType) => ScanDocumentPage(docType: docType),
                   ),
                 ),
                 _buildIconButton(
                   label: "Загрузить\nфайл",
                   iconPath: "assets/upload_file_icon.svg",
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const UploadFilePage()),
-                    );
-                  },
+                  onTap: () => _navigateWithDocType(
+                        (docType) => UploadFilePage(docType: docType),
+                  ),
                 ),
               ],
             ),
