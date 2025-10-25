@@ -25,6 +25,15 @@ class Anonymizer:
         self.rules = self._load_rules(doc_type)
         self.use_spacy = _spacy_model is not None
 
+        # Минимальная длина сущности для замены
+        self.min_entity_length = 3
+
+        # Стоп-слова, которые не должны маркироваться как PER
+        self.stoplist_per = {
+            "продавец", "покупатель", "договор", "настоящий", "ТС",
+            "автомобиль", "деньги", "передал", "получил", "подпись", "ФИО"
+        }
+
     # ------------------------------------------------------------
     def _load_rules(self, doc_type: str) -> dict:
         """Загружает YAML-файл с правилами для данного типа документа"""
@@ -53,15 +62,27 @@ class Anonymizer:
                     for match in matches:
                         if isinstance(match, tuple):
                             match = " ".join(match).strip()
-                        entities_raw.append((ent_type, match.strip()))
+                        match = match.strip()
+                        if len(match) < self.min_entity_length:
+                            continue
+                        # фильтрация PER по стоп-листу
+                        if ent_type == "PER" and match.lower() in self.stoplist_per:
+                            continue
+                        entities_raw.append((ent_type, match))
 
-        # 2. fallback — spaCy (если включен)
+        # 2. fallback — spaCy (если включен и не отключён в YAML)
         if self.use_spacy and self.rules.get("enable_spacy_fallback", True):
             doc = _spacy_model(text)
             for ent in doc.ents:
                 ent_type = self._map_spacy_label(ent.label_)
-                if ent_type:
-                    entities_raw.append((ent_type, ent.text.strip()))
+                if not ent_type:
+                    continue
+                match = ent.text.strip()
+                if len(match) < self.min_entity_length:
+                    continue
+                if ent_type == "PER" and match.lower() in self.stoplist_per:
+                    continue
+                entities_raw.append((ent_type, match))
 
         # 3. Удаление дубликатов и нумерация
         seen = defaultdict(set)
@@ -87,9 +108,14 @@ class Anonymizer:
     def anonymize(self, text: str, entities: list):
         """Заменяет найденные сущности на [[LABEL]]"""
         anonymized_text = text
-        for entity in entities:
+        # сортируем по длине, чтобы не ломать вложенные сущности
+        entities_sorted = sorted(entities, key=lambda e: len(e['text']), reverse=True)
+        for entity in entities_sorted:
+            if len(entity['text']) < self.min_entity_length:
+                continue
+            # добавляем границы слова, чтобы не ломать части слов
             anonymized_text = re.sub(
-                re.escape(entity['text']),
+                r'\b' + re.escape(entity['text']) + r'\b',
                 f"[[{entity['label']}]]",
                 anonymized_text
             )
