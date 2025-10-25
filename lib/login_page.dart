@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'home_page.dart';
 import 'register_page.dart';
 import 'services/auth_service.dart';
@@ -17,25 +16,23 @@ class _LoginPageState extends State<LoginPage> {
 
   bool _isEmailFocused = false;
   bool _isPasswordFocused = false;
+  bool _isLoading = false;
 
   void _login() async {
     final email = _emailController.text.trim();
     final password = _passwordController.text.trim();
 
-    try {
-      User? user = await AuthService().signIn(email, password);
-      if (user != null) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => const HomePage()),
-        );
-      } else {
-        _showError("Ошибка входа. Проверьте данные.");
-      }
-    } catch (e) {
-      _showError("Ошибка: ${e.toString()}");
+    final success = await AuthService().login(email, password);
+    if (success) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => const HomePage()),
+      );
+    } else {
+      _showError("Ошибка входа. Проверьте данные.");
     }
   }
+
 
   void _showError(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
@@ -105,14 +102,18 @@ class _LoginPageState extends State<LoginPage> {
                   width: screenWidth * 0.9,
                   height: 55,
                   child: ElevatedButton(
-                    onPressed: _login,
+                    onPressed: _isLoading ? null : _login,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF800000),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10),
                       ),
                     ),
-                    child: const Text(
+                    child: _isLoading
+                        ? const CircularProgressIndicator(
+                      color: Colors.white,
+                    )
+                        : const Text(
                       "Войти",
                       style: TextStyle(
                         fontFamily: 'DM Sans',

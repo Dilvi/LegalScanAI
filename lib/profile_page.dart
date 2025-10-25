@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:io';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:path_provider/path_provider.dart';
 
 import 'login_page.dart';
@@ -21,6 +21,7 @@ class ProfilePage extends StatefulWidget {
 class _ProfilePageState extends State<ProfilePage> {
   File? _avatarImage;
   bool _isLoggedIn = false;
+  String _email = '';
 
   @override
   void initState() {
@@ -30,9 +31,12 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Future<void> _checkLoginStatus() async {
-    User? user = FirebaseAuth.instance.currentUser;
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('auth_token');
+    final email = prefs.getString('email');
     setState(() {
-      _isLoggedIn = user != null;
+      _isLoggedIn = token != null && token.isNotEmpty;
+      _email = email ?? '';
     });
   }
 
@@ -56,7 +60,6 @@ class _ProfilePageState extends State<ProfilePage> {
       final path = '${directory.path}/avatar.png';
       final imageFile = File(picked.path);
 
-      // Сохраняем и перезаписываем аватарку
       await imageFile.copy(path);
 
       setState(() {
@@ -111,24 +114,20 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Future<void> _signOut() async {
-    try {
-      await FirebaseAuth.instance.signOut();
-      setState(() {
-        _isLoggedIn = false;
-      });
-      Navigator.pushAndRemoveUntil(
-        context,
-        MaterialPageRoute(builder: (context) => const LoginPage()),
-            (route) => false,
-      );
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text("Ошибка выхода: $e"),
-          backgroundColor: Colors.red,
-        ),
-      );
-    }
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('auth_token');
+    await prefs.remove('email');
+
+    setState(() {
+      _isLoggedIn = false;
+      _email = '';
+    });
+
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(builder: (context) => const LoginPage()),
+          (route) => false,
+    );
   }
 
   @override
@@ -164,14 +163,14 @@ class _ProfilePageState extends State<ProfilePage> {
                       color: Colors.black,
                     ),
                   ),
-                  SizedBox(width: 48 * scale),
+                  const SizedBox(width: 48),
                 ],
               ),
             ),
 
             SizedBox(height: 32 * scale),
 
-            // Аватарка с действиями
+            // Аватарка
             GestureDetector(
               onTap: _isLoggedIn ? _showAvatarOptions : null,
               child: CircleAvatar(
@@ -183,6 +182,18 @@ class _ProfilePageState extends State<ProfilePage> {
                     : null,
               ),
             ),
+
+            const SizedBox(height: 12),
+
+            if (_isLoggedIn)
+              Text(
+                _email,
+                style: TextStyle(
+                  fontFamily: 'DM Sans',
+                  fontSize: 14,
+                  color: Colors.black54,
+                ),
+              ),
 
             SizedBox(height: 32 * scale),
 
