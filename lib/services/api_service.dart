@@ -6,7 +6,7 @@ import 'package:http_parser/http_parser.dart';
 
 class ApiService {
   // 📡 — поставь свой IP или домен сервера FastAPI
-  static const String _baseUrl = "http://192.168.1.69:8000";
+  static const String _baseUrl = "http://95.165.74.131:8000";
   static const Map<String, String> _headers = {
     "Content-Type": "application/json; charset=utf-8",
   };

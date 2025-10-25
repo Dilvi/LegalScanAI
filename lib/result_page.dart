@@ -100,7 +100,8 @@ class _ResultPageState extends State<ResultPage>
                   children: [
                     _buildRiskBanner(hasRisk),
                     const SizedBox(height: 20),
-                    // ✨ Добавляем надпись бренда
+
+                    // ✨ Брендовая подпись — всегда показываем
                     const Text(
                       "✨ Результат анализа от LegalScanAI",
                       style: TextStyle(
@@ -111,6 +112,8 @@ class _ResultPageState extends State<ResultPage>
                       ),
                     ),
                     const SizedBox(height: 12),
+
+                    // 📄 Текст нейросети
                     Html(
                       data: widget.analyzedText,
                       style: {
@@ -135,7 +138,8 @@ class _ResultPageState extends State<ResultPage>
                         "hr": Style(
                           margin: Margins.symmetric(vertical: 12),
                           border: Border(
-                            top: BorderSide(color: Colors.grey.shade300, width: 1),
+                            top: BorderSide(
+                                color: Colors.grey.shade300, width: 1),
                           ),
                         ),
                         "code": Style(
@@ -151,7 +155,10 @@ class _ResultPageState extends State<ResultPage>
             ),
           ),
         ),
-        bottomNavigationBar: _buildBottomPanel(context),
+        bottomNavigationBar: SafeArea(
+          top: false,
+          child: _buildBottomPanel(context),
+        ),
       ),
     );
   }
@@ -190,7 +197,6 @@ class _ResultPageState extends State<ResultPage>
     );
   }
 
-  /// 📌 Нижняя панель — старая версия с бордовым фоном
   Widget _buildBottomPanel(BuildContext context) {
     return Container(
       decoration: const BoxDecoration(
@@ -215,8 +221,10 @@ class _ResultPageState extends State<ResultPage>
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              _buildSquare("Расширенный\nанализ", "assets/advanced_analysis_icon.svg", _handleAdvancedAnalysis),
-              _buildSquare("Сохранить", "assets/save_icon.svg", isSaved ? null : _saveResult),
+              _buildSquare("Расширенный\nанализ",
+                  "assets/advanced_analysis_icon.svg", _handleAdvancedAnalysis),
+              _buildSquare("Сохранить", "assets/save_icon.svg",
+                  isSaved ? null : _saveResult),
               _buildSquare("Поделиться", "assets/share_icon.svg", _shareResult),
             ],
           ),
@@ -247,7 +255,8 @@ class _ResultPageState extends State<ResultPage>
                   iconPath,
                   width: 24,
                   height: 24,
-                  color: const Color(0xFF800000).withOpacity(onTap != null ? 1 : 0.4),
+                  color: const Color(0xFF800000)
+                      .withOpacity(onTap != null ? 1 : 0.4),
                 ),
               ),
             ),
@@ -266,7 +275,9 @@ class _ResultPageState extends State<ResultPage>
               style: TextStyle(
                 fontFamily: 'DM Sans',
                 fontSize: 13,
-                color: onTap != null ? Colors.white : Colors.white.withOpacity(0.4),
+                color: onTap != null
+                    ? Colors.white
+                    : Colors.white.withOpacity(0.4),
               ),
             ),
           ),
@@ -274,6 +285,8 @@ class _ResultPageState extends State<ResultPage>
       ],
     );
   }
+
+  // ---- функционал сохранения и навигации ----
 
   Future<void> _handleBack() async {
     final prefs = await SharedPreferences.getInstance();
@@ -285,7 +298,7 @@ class _ResultPageState extends State<ResultPage>
       final checkData = {
         'type': widget.docType,
         'date': formattedDate,
-        'hasRisk': widget.hasRisk ?? false,
+        'hasRisk': widget.hasRisk,
       };
 
       recent.insert(0, jsonEncode(checkData));
@@ -315,7 +328,7 @@ class _ResultPageState extends State<ResultPage>
       final newCheck = {
         'type': widget.docType,
         'date': formattedDate,
-        'hasRisk': widget.hasRisk ?? true,
+        'hasRisk': widget.hasRisk,
         'filePath': filePath,
       };
 
@@ -348,7 +361,9 @@ class _ResultPageState extends State<ResultPage>
       await Share.shareXFiles([XFile(file.path)], text: 'Результат анализа');
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Ошибка при отправке: $e'), backgroundColor: Colors.red),
+        SnackBar(
+            content: Text('Ошибка при отправке: $e'),
+            backgroundColor: Colors.red),
       );
     }
   }
