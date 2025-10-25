@@ -2,12 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:camera/camera.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'result_page.dart';
 import '../services/api_service.dart';
 import 'load.dart';
 
 class ScanDocumentPage extends StatefulWidget {
-  final String docType; // ✅ добавлено
+  final String docType;
 
   const ScanDocumentPage({super.key, required this.docType});
 
@@ -19,7 +20,7 @@ class _ScanDocumentPageState extends State<ScanDocumentPage> {
   CameraController? _cameraController;
   bool _isFlashOn = false;
   bool _isCameraInitialized = false;
-  final bool _isProcessing = false; // Флаг отображения процесса
+  final bool _isProcessing = false;
   late List<CameraDescription> cameras;
 
   @override
@@ -66,15 +67,12 @@ class _ScanDocumentPageState extends State<ScanDocumentPage> {
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (context) => const LoadPage(loadingText: "Распознаём изображение"),
+          builder: (context) =>
+          const LoadPage(loadingText: "Распознаём изображение"),
         ),
       );
 
-      print("📸 Начало процесса фотографирования...");
       final XFile image = await _cameraController!.takePicture();
-      print("✅ Фотография сделана: ${image.path}");
-
-      // ✅ Передаём docType в анализ
       final result = await ApiService.analyzeImage(
         image.path,
         docType: widget.docType,
@@ -83,29 +81,25 @@ class _ScanDocumentPageState extends State<ScanDocumentPage> {
       Navigator.pop(context);
       _navigateToResult(context, result);
     } catch (e) {
-      print("❌ Ошибка при съёмке или распознавании: $e");
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Ошибка: $e")),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text("Ошибка: $e")));
       Navigator.pop(context);
     }
   }
 
   Future<void> _pickImageFromGallery(BuildContext context) async {
     try {
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => const LoadPage(loadingText: "Открываем галерею"),
-        ),
-      );
-
-      print("🖼 Открытие галереи...");
-      final pickedFile = await ImagePicker().pickImage(source: ImageSource.gallery);
+      final pickedFile =
+      await ImagePicker().pickImage(source: ImageSource.gallery);
       if (pickedFile != null) {
-        print("✅ Изображение выбрано: ${pickedFile.path}");
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) =>
+            const LoadPage(loadingText: "Обрабатываем изображение"),
+          ),
+        );
 
-        // ✅ Передаём docType в анализ
         final result = await ApiService.analyzeImage(
           pickedFile.path,
           docType: widget.docType,
@@ -113,16 +107,10 @@ class _ScanDocumentPageState extends State<ScanDocumentPage> {
 
         Navigator.pop(context);
         _navigateToResult(context, result);
-      } else {
-        print("⚠️ Изображение не выбрано.");
-        Navigator.pop(context);
       }
     } catch (e) {
-      print("❌ Ошибка при выборе изображения: $e");
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Ошибка: $e")),
-      );
-      Navigator.pop(context);
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text("Ошибка: $e")));
     }
   }
 
@@ -132,7 +120,7 @@ class _ScanDocumentPageState extends State<ScanDocumentPage> {
       MaterialPageRoute(
         builder: (context) => ResultPage(
           analyzedText: result,
-          docType: widget.docType, // ✅ передаём тип документа
+          docType: widget.docType,
         ),
       ),
     );
@@ -140,6 +128,8 @@ class _ScanDocumentPageState extends State<ScanDocumentPage> {
 
   @override
   Widget build(BuildContext context) {
+    final bottomInset = MediaQuery.of(context).viewPadding.bottom;
+
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Colors.white,
@@ -150,9 +140,9 @@ class _ScanDocumentPageState extends State<ScanDocumentPage> {
             Navigator.pop(context);
           },
         ),
-        title: Text(
-          "Сканирование • ${widget.docType}", // ✅ отображаем выбранный тип
-          style: const TextStyle(
+        title: const Text(
+          "Сканирование",
+          style: TextStyle(
             fontFamily: 'DM Sans',
             fontSize: 18,
             fontWeight: FontWeight.bold,
@@ -162,14 +152,15 @@ class _ScanDocumentPageState extends State<ScanDocumentPage> {
         centerTitle: true,
         actions: [
           IconButton(
-            icon: SvgPicture.asset(
-              "assets/flash_button.svg",
-              width: 30,
-              height: 30,
-              color: _isFlashOn ? Colors.yellow : Colors.white,
+            icon: Icon(
+              _isFlashOn ? Icons.flash_on : Icons.flash_off,
+              color: _isFlashOn ? Colors.amber : Colors.black,
+              size: 28,
             ),
             onPressed: _toggleFlash,
+            tooltip: "Вспышка",
           ),
+          const SizedBox(width: 5),
         ],
       ),
       backgroundColor: Colors.black,
@@ -182,7 +173,7 @@ class _ScanDocumentPageState extends State<ScanDocumentPage> {
                 : const Center(child: CircularProgressIndicator()),
           ),
 
-          // Индикатор загрузки поверх камеры
+          // Индикатор загрузки
           if (_isProcessing)
             Positioned.fill(
               child: Container(
@@ -195,82 +186,107 @@ class _ScanDocumentPageState extends State<ScanDocumentPage> {
               ),
             ),
 
-          // Рамка сканирования
-          Align(
-            alignment: const Alignment(0, -0.3),
-            child: SvgPicture.asset(
-              "assets/photo_frame.svg",
-              width: 450,
-              height: 450,
-            ),
+          // 🌟 Анимированная рамка
+          const Align(
+            alignment: Alignment(0, -0.2),
+            child: ScanningFrame(),
           ),
 
-          // Нижняя панель
+// Нижняя панель
           Align(
             alignment: Alignment.bottomCenter,
-            child: Container(
-              height: 140,
-              decoration: const BoxDecoration(
-                color: Color(0xFF800000),
-                borderRadius: BorderRadius.only(
-                  topLeft: Radius.circular(25),
-                  topRight: Radius.circular(25),
+            child: SafeArea(
+              top: false,
+              child: Container(
+                width: double.infinity,
+                height: 125,
+                padding: const EdgeInsets.symmetric(horizontal: 21),
+                decoration: const BoxDecoration(
+                  color: Color(0xFF800000),
+                  borderRadius: BorderRadius.only(
+                    topLeft: Radius.circular(25),
+                    topRight: Radius.circular(25),
+                  ),
                 ),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  crossAxisAlignment: CrossAxisAlignment.center,
+                child: Column(
                   children: [
-                    const SizedBox(width: 60),
+                    const SizedBox(height: 26),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const SizedBox(width: 52), // небольшой отступ слева для симметрии
 
-                    // Кнопка фотографирования
-                    Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        onTap: () async {
-                          await _captureAndAnalyze(context);
-                        },
-                        borderRadius: BorderRadius.circular(50),
-                        splashColor: Colors.white.withOpacity(0.3),
-                        child: Padding(
-                          padding: const EdgeInsets.only(bottom: 25),
-                          child: SvgPicture.asset(
-                            "assets/photo_button.svg",
-                            width: 100,
-                            height: 100,
+                        // 📸 Центральная кнопка
+                        Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            onTap: () async {
+                              await _captureAndAnalyze(context);
+                            },
+                            borderRadius: BorderRadius.circular(50),
+                            splashColor: Colors.white.withOpacity(0.3),
+                            child: SvgPicture.asset(
+                              "assets/photo_button.svg",
+                              width: 80,
+                              height: 80,
+                            ),
                           ),
                         ),
-                      ),
-                    ),
 
-                    // Кнопка галереи
-                    Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        onTap: () async {
-                          await _pickImageFromGallery(context);
-                        },
-                        borderRadius: BorderRadius.circular(20),
-                        splashColor: Colors.white.withOpacity(0.3),
-                        child: Padding(
-                          padding: const EdgeInsets.only(bottom: 20),
-                          child: Image.asset(
-                            "assets/gallery_button.png",
-                            width: 70,
-                            height: 70,
+                        // 🖼 Кнопка галереи
+                        Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            onTap: () async {
+                              await _pickImageFromGallery(context);
+                            },
+                            borderRadius: BorderRadius.circular(12),
+                            splashColor: Colors.white.withOpacity(0.3),
+                            child: Image.asset(
+                              "assets/gallery_button.png",
+                              width: 52,
+                              height: 52,
+                            ),
                           ),
                         ),
-                      ),
+                      ],
                     ),
                   ],
                 ),
               ),
             ),
           ),
+
         ],
       ),
+    );
+  }
+}
+
+// 🪄 Анимированная рамка сканирования
+class ScanningFrame extends StatelessWidget {
+  const ScanningFrame({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 300,
+      height: 400,
+      decoration: BoxDecoration(
+        border: Border.all(
+          color: Colors.white.withOpacity(0.95),
+          width: 3,
+        ),
+        borderRadius: BorderRadius.circular(16),
+      ),
+    )
+        .animate(onPlay: (controller) => controller.repeat())
+        .shimmer(duration: 1800.ms)
+        .scaleXY(
+      begin: 0.97,
+      end: 1.02,
+      duration: 1500.ms,
+      curve: Curves.easeInOut,
     );
   }
 }

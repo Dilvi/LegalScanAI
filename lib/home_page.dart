@@ -51,7 +51,6 @@ class _HomePageState extends State<HomePage> {
     setState(() {
       recentChecks = list.map((jsonStr) {
         final decoded = jsonDecode(jsonStr) as Map<String, dynamic>;
-        print('📂 Загрузка элемента: ${decoded['type']} | файл: ${decoded['filePath']}');
         return decoded;
       }).toList();
     });
@@ -122,6 +121,8 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
+    final bottomInset = MediaQuery.of(context).viewPadding.bottom;
+
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: isSelectionMode
@@ -153,7 +154,8 @@ class _HomePageState extends State<HomePage> {
                 context: context,
                 builder: (ctx) => AlertDialog(
                   title: const Text("Удалить выбранные элементы?"),
-                  content: const Text("Это действие нельзя отменить."),
+                  content:
+                  const Text("Это действие нельзя отменить."),
                   actions: [
                     TextButton(
                       onPressed: () => Navigator.pop(ctx, false),
@@ -161,8 +163,10 @@ class _HomePageState extends State<HomePage> {
                     ),
                     TextButton(
                       onPressed: () => Navigator.pop(ctx, true),
-                      child: const Text("Удалить",
-                          style: TextStyle(color: Colors.red)),
+                      child: const Text(
+                        "Удалить",
+                        style: TextStyle(color: Colors.red),
+                      ),
                     ),
                   ],
                 ),
@@ -176,6 +180,7 @@ class _HomePageState extends State<HomePage> {
       )
           : null,
       body: SafeArea(
+        bottom: false, // ⬅️ отключаем SafeArea внизу, чтобы контролировать вручную
         child: Column(
           children: [
             Padding(
@@ -230,7 +235,8 @@ class _HomePageState extends State<HomePage> {
                 onRefresh: _refresh,
                 color: const Color(0xFF800000),
                 child: ListView.separated(
-                  padding: const EdgeInsets.only(bottom: 230, left: 20, right: 20),
+                  padding:
+                  const EdgeInsets.only(bottom: 230, left: 20, right: 20),
                   itemCount: recentChecks.length,
                   separatorBuilder: (context, index) =>
                   const Divider(height: 1, color: Color(0xFFE0E0E0)),
@@ -238,6 +244,17 @@ class _HomePageState extends State<HomePage> {
                     final item = recentChecks[index];
                     final isSelected = selectedIndexes.contains(index);
                     final hasFile = item.containsKey('filePath');
+
+                    final dynamic riskValue = item['hasRisk'];
+                    String riskIcon;
+
+                    if (riskValue == true) {
+                      riskIcon = 'assets/Unsuccessfully.svg'; // ❌ есть риски
+                    } else if (riskValue == false) {
+                      riskIcon = 'assets/Successfully.svg';   // ✅ всё ок
+                    } else {
+                      riskIcon = 'assets/Unknown.svg';        // ⚪ неопределённо
+                    }
 
                     return GestureDetector(
                       onLongPress: () => _toggleSelection(index),
@@ -248,7 +265,6 @@ class _HomePageState extends State<HomePage> {
                           if (hasFile) {
                             final file = File(item['filePath']);
                             if (await file.exists()) {
-                              print('✅ Открытие сохранённого файла: ${item['filePath']}');
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
@@ -257,7 +273,6 @@ class _HomePageState extends State<HomePage> {
                                 ),
                               );
                             } else {
-                              print('❌ Файл не найден: ${item['filePath']}');
                               ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(
                                   content: Text("Файл не найден на устройстве"),
@@ -265,7 +280,6 @@ class _HomePageState extends State<HomePage> {
                               );
                             }
                           } else {
-                            print('ℹ️ Результат не был сохранён.');
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(
                                 content: Text("Результат не был сохранён"),
@@ -306,9 +320,7 @@ class _HomePageState extends State<HomePage> {
                             style: const TextStyle(fontFamily: 'DM Sans'),
                           ),
                           trailing: SvgPicture.asset(
-                            item['hasRisk'] == true
-                                ? 'assets/Unsuccessfully.svg'
-                                : 'assets/Successfully.svg',
+                            riskIcon,
                             width: 24,
                             height: 24,
                           ),
@@ -322,7 +334,10 @@ class _HomePageState extends State<HomePage> {
           ],
         ),
       ),
-      bottomNavigationBar: _buildBottomPanel(context),
+      bottomNavigationBar: SafeArea(
+        top: false,
+        child: _buildBottomPanel(context),
+      ),
     );
   }
 
