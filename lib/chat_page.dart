@@ -39,7 +39,6 @@ class _ChatPageState extends State<ChatPage> {
 """
     });
 
-
     // ⏳ Анимация точек
     Timer.periodic(const Duration(milliseconds: 500), (timer) {
       if (!mounted || !_isLoading) return;
@@ -64,6 +63,14 @@ class _ChatPageState extends State<ChatPage> {
       _isLoading = false;
       _messages.add({'role': 'bot', 'text': botReply});
     });
+  }
+
+  String _preprocessMessage(String text) {
+    return text
+        .replaceAll('<br><br>', '\n\n')
+        .replaceAll('<br>', '\n')
+        .replaceAllMapped(RegExp(r' +\n'), (match) => '\n')
+        .trim();
   }
 
   @override
@@ -157,16 +164,29 @@ class _ChatPageState extends State<ChatPage> {
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: MarkdownBody(
-                        data: message['text']!,
+                        data: _preprocessMessage(message['text']!),
                         styleSheet: MarkdownStyleSheet(
                           p: TextStyle(
                             fontSize: 14 * scale,
                             color: Colors.black,
                             fontFamily: 'DM Sans',
+                            height: 1.5,
                           ),
                           strong: TextStyle(
                             fontSize: 14 * scale,
                             fontWeight: FontWeight.bold,
+                            color: Colors.black,
+                            fontFamily: 'DM Sans',
+                          ),
+                          h2: TextStyle(
+                            fontSize: 16 * scale,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black,
+                            fontFamily: 'DM Sans',
+                          ),
+                          h3: TextStyle(
+                            fontSize: 15 * scale,
+                            fontWeight: FontWeight.w600,
                             color: Colors.black,
                             fontFamily: 'DM Sans',
                           ),
