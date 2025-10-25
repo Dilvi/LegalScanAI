@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'login_page.dart';
-import 'services/auth_service.dart';
 import 'home_page.dart';
+import 'services/auth_service.dart';
 
 class RegisterPage extends StatefulWidget {
   const RegisterPage({super.key});
@@ -19,57 +18,23 @@ class _RegisterPageState extends State<RegisterPage> {
   bool _isEmailFocused = false;
   bool _isPhoneFocused = false;
   bool _isPasswordFocused = false;
+  bool _isLoading = false;
 
   void _register() async {
     final email = _emailController.text.trim();
     final password = _passwordController.text.trim();
     final phone = _phoneController.text.trim();
 
-    try {
-      User? user = await AuthService().register(email, password, phone);
-
-      if (!mounted) return;
-
-      if (user != null) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => const HomePage()),
-        );
-      } else {
-        _showError("Не удалось создать аккаунт. Проверьте данные.");
-      }
-    } on FirebaseAuthException catch (e) {
-      if (!mounted) return;
-      String errorMsg;
-      switch (e.code) {
-        case 'email-already-in-use':
-          errorMsg = 'Этот email уже используется.';
-          break;
-        case 'invalid-email':
-          errorMsg = 'Неверный формат email.';
-          break;
-        case 'weak-password':
-          errorMsg = 'Пароль слишком слабый.';
-          break;
-        default:
-          errorMsg = 'Ошибка регистрации: ${e.message}';
-      }
-      _showError(errorMsg);
-    } catch (e) {
-      if (!mounted) return;
-      _showError("Неизвестная ошибка: $e");
+    final success = await AuthService().register(email, password, phone);
+    if (success) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => const HomePage()),
+      );
+    } else {
+      _showError("Не удалось создать аккаунт. Проверьте данные.");
     }
   }
-
-
-
-
-
-
-
-
-
-
 
 
   void _showError(String message) {
@@ -149,14 +114,18 @@ class _RegisterPageState extends State<RegisterPage> {
                   width: screenWidth * 0.9,
                   height: 55,
                   child: ElevatedButton(
-                    onPressed: _register,
+                    onPressed: _isLoading ? null : _register,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF800000),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10),
                       ),
                     ),
-                    child: const Text(
+                    child: _isLoading
+                        ? const CircularProgressIndicator(
+                      color: Colors.white,
+                    )
+                        : const Text(
                       "Создать аккаунт",
                       style: TextStyle(
                         fontFamily: 'DM Sans',

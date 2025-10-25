@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'services/profile_service.dart';
 import 'load.dart';
 import 'no_connection.dart';
 
@@ -14,10 +13,10 @@ class PersonalDataPage extends StatefulWidget {
 
 class _PersonalDataPageState extends State<PersonalDataPage> {
   final _formKey = GlobalKey<FormState>();
-  final TextEditingController _nameController = TextEditingController();
-  final TextEditingController _surnameController = TextEditingController();
-  final TextEditingController _emailController = TextEditingController();
-  final TextEditingController _phoneController = TextEditingController();
+  final _nameController = TextEditingController();
+  final _surnameController = TextEditingController();
+  final _emailController = TextEditingController();
+  final _phoneController = TextEditingController();
 
   bool _isSaveButtonEnabled = false;
   bool _isLoading = true;
@@ -36,83 +35,73 @@ class _PersonalDataPageState extends State<PersonalDataPage> {
   }
 
   void _setupListeners() {
-    _nameController.addListener(_checkIfChanged);
-    _surnameController.addListener(_checkIfChanged);
-    _emailController.addListener(_checkIfChanged);
-    _phoneController.addListener(_checkIfChanged);
+    for (var controller in [
+      _nameController,
+      _surnameController,
+      _emailController,
+      _phoneController
+    ]) {
+      controller.addListener(_checkIfChanged);
+    }
   }
 
   void _checkIfChanged() {
     setState(() {
-      _isSaveButtonEnabled = _nameController.text.trim() != _initialName ||
-          _surnameController.text.trim() != _initialSurname ||
-          _emailController.text.trim() != _initialEmail ||
-          _phoneController.text.trim() != _initialPhone;
+      _isSaveButtonEnabled =
+          _nameController.text.trim() != _initialName ||
+              _surnameController.text.trim() != _initialSurname ||
+              _emailController.text.trim() != _initialEmail ||
+              _phoneController.text.trim() != _initialPhone;
     });
   }
 
   Future<void> _loadUserData() async {
-    try {
-      User? user = FirebaseAuth.instance.currentUser;
-      if (user != null) {
-        DocumentSnapshot userDoc = await FirebaseFirestore.instance
-            .collection('users')
-            .doc(user.uid)
-            .get();
-
-        if (userDoc.exists) {
-          _initialName = userDoc['name'] ?? '';
-          _initialSurname = userDoc['surname'] ?? '';
-          _initialEmail = userDoc['email'] ?? '';
-          _initialPhone = userDoc['phone'] ?? '';
-
-          _nameController.text = _initialName;
-          _surnameController.text = _initialSurname;
-          _emailController.text = _initialEmail;
-          _phoneController.text = _initialPhone;
-
-          _isSaveButtonEnabled = false;
-        }
-
-        setState(() {
-          _isLoading = false;
-          _hasError = false;
-        });
-      }
-    } catch (e) {
-      print("Ошибка при загрузке данных: $e");
+    final data = await ProfileService.getProfile();
+    if (data == null) {
       setState(() {
         _isLoading = false;
         _hasError = true;
       });
+      return;
     }
+
+    setState(() {
+      _initialName = data['name'] ?? '';
+      _initialSurname = data['surname'] ?? '';
+      _initialEmail = data['email'] ?? '';
+      _initialPhone = data['phone'] ?? '';
+
+      _nameController.text = _initialName;
+      _surnameController.text = _initialSurname;
+      _emailController.text = _initialEmail;
+      _phoneController.text = _initialPhone;
+
+      _isLoading = false;
+      _hasError = false;
+      _isSaveButtonEnabled = false;
+    });
   }
 
   Future<void> _saveUserData() async {
-    try {
-      User? user = FirebaseAuth.instance.currentUser;
-      if (user != null) {
-        await FirebaseFirestore.instance.collection('users').doc(user.uid).update({
-          'name': _nameController.text.trim(),
-          'surname': _surnameController.text.trim(),
-          'email': _emailController.text.trim(),
-          'phone': _phoneController.text.trim(),
-        });
+    final success = await ProfileService.updateProfile(
+      name: _nameController.text.trim(),
+      surname: _surnameController.text.trim(),
+      email: _emailController.text.trim(),
+      phone: _phoneController.text.trim(),
+    );
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Данные успешно сохранены')),
-        );
-
-        setState(() {
-          _initialName = _nameController.text.trim();
-          _initialSurname = _surnameController.text.trim();
-          _initialEmail = _emailController.text.trim();
-          _initialPhone = _phoneController.text.trim();
-          _isSaveButtonEnabled = false;
-        });
-      }
-    } catch (e) {
-      print("Ошибка при сохранении данных: $e");
+    if (success) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Данные успешно сохранены')),
+      );
+      setState(() {
+        _initialName = _nameController.text.trim();
+        _initialSurname = _surnameController.text.trim();
+        _initialEmail = _emailController.text.trim();
+        _initialPhone = _phoneController.text.trim();
+        _isSaveButtonEnabled = false;
+      });
+    } else {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Ошибка при сохранении данных')),
       );
@@ -128,20 +117,16 @@ class _PersonalDataPageState extends State<PersonalDataPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          label,
-          style: const TextStyle(
-            fontFamily: 'DM Sans',
-            fontSize: 14,
-            color: Colors.black,
-          ),
-        ),
+        Text(label,
+            style: const TextStyle(
+                fontFamily: 'DM Sans', fontSize: 14, color: Colors.black)),
         const SizedBox(height: 8),
         TextFormField(
           controller: controller,
           keyboardType: keyboardType,
           decoration: InputDecoration(
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            contentPadding:
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             hintText: hint,
             hintStyle: const TextStyle(color: Color(0xFFA0A0A0)),
             filled: true,
@@ -155,12 +140,8 @@ class _PersonalDataPageState extends State<PersonalDataPage> {
               borderSide: const BorderSide(color: Color(0xFF800000), width: 2),
             ),
           ),
-          validator: (value) {
-            if (value == null || value.trim().isEmpty) {
-              return 'Поле не может быть пустым';
-            }
-            return null;
-          },
+          validator: (value) =>
+          (value == null || value.trim().isEmpty) ? 'Поле не может быть пустым' : null,
         ),
         const SizedBox(height: 20),
       ],
@@ -169,13 +150,8 @@ class _PersonalDataPageState extends State<PersonalDataPage> {
 
   @override
   Widget build(BuildContext context) {
-    if (_isLoading) {
-      return const LoadPage(loadingText: "Соединение с сервером");
-    }
-
-    if (_hasError) {
-      return const NoConnectionPage();
-    }
+    if (_isLoading) return const LoadPage(loadingText: "Соединение с сервером");
+    if (_hasError) return const NoConnectionPage();
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -207,27 +183,21 @@ class _PersonalDataPageState extends State<PersonalDataPage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _buildTextField(
-                    label: 'Имя',
-                    hint: 'Введите ваше имя',
-                    controller: _nameController,
-                  ),
+                      label: 'Имя', hint: 'Введите ваше имя', controller: _nameController),
                   _buildTextField(
-                    label: 'Фамилия',
-                    hint: 'Введите вашу фамилию',
-                    controller: _surnameController,
-                  ),
+                      label: 'Фамилия',
+                      hint: 'Введите вашу фамилию',
+                      controller: _surnameController),
                   _buildTextField(
-                    label: 'Email',
-                    hint: 'Введите email',
-                    controller: _emailController,
-                    keyboardType: TextInputType.emailAddress,
-                  ),
+                      label: 'Email',
+                      hint: 'Введите email',
+                      controller: _emailController,
+                      keyboardType: TextInputType.emailAddress),
                   _buildTextField(
-                    label: 'Телефон',
-                    hint: '+7 (___) ___-__-__',
-                    controller: _phoneController,
-                    keyboardType: TextInputType.phone,
-                  ),
+                      label: 'Телефон',
+                      hint: '+7 (___) ___-__-__',
+                      controller: _phoneController,
+                      keyboardType: TextInputType.phone),
                   const SizedBox(height: 30),
                   Center(
                     child: SizedBox(
@@ -242,7 +212,9 @@ class _PersonalDataPageState extends State<PersonalDataPage> {
                         }
                             : null,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: _isSaveButtonEnabled ? const Color(0xFF800000) : Colors.grey,
+                          backgroundColor: _isSaveButtonEnabled
+                              ? const Color(0xFF800000)
+                              : Colors.grey,
                           foregroundColor: Colors.white,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),

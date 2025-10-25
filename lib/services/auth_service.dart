@@ -1,60 +1,75 @@
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class AuthService {
-  final FirebaseAuth _auth = FirebaseAuth.instance;
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final String baseUrl = "http://95.165.74.131:8080";
 
-  // Регистрация пользователя
-  Future<User?> register(String email, String password, String phone) async {
-    try {
-      UserCredential userCredential = await _auth.createUserWithEmailAndPassword(
-        email: email,
-        password: password,
-      );
+  Future<bool> register(String email, String password, String phone) async {
+    final response = await http.post(
+      Uri.parse("$baseUrl/register"),
+      headers: {"Content-Type": "application/json"},
+      body: jsonEncode({
+        "email": email,
+        "password": password,
+        "phone": phone,
+      }),
+    );
 
-      User? user = userCredential.user;
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      final token = data['token'];
 
-      if (user != null) {
-        // Сохраняем данные пользователя в Firestore
-        await _firestore.collection('users').doc(user.uid).set({
-          'uid': user.uid,
-          'email': user.email,
-          'phone': phone,
-          'name': '',
-          'surname': '',
-          'createdAt': DateTime.now().toIso8601String(),
-          'isAdmin': false,
-        });
-
-        print("Пользователь успешно создан и добавлен в Firestore: ${user.uid}");
-        return user;
-      } else {
-        print("Ошибка: Пользователь не создан");
-        return null;
+      if (token == null) {
+        print("❌ Сервер не вернул токен");
+        return false;
       }
-    } catch (e) {
-      print("Ошибка при регистрации: $e");
-      return null;
+
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('auth_token', token);
+      await prefs.setString('email', email);
+      return true;
+    } else if (response.statusCode == 409) {
+      print("⚠️ Email уже используется");
+      return false;
+    } else {
+      print("Ошибка регистрации: ${response.body}");
+      return false;
     }
   }
 
-  // Вход пользователя
-  Future<User?> signIn(String email, String password) async {
-    try {
-      UserCredential userCredential = await _auth.signInWithEmailAndPassword(
-        email: email,
-        password: password,
-      );
-      return userCredential.user;
-    } catch (e) {
-      print("Ошибка при входе: $e");
-      return null;
+  Future<bool> login(String email, String password) async {
+    final response = await http.post(
+      Uri.parse("$baseUrl/login"),
+      headers: {"Content-Type": "application/json"},
+      body: jsonEncode({
+        "email": email,
+        "password": password,
+      }),
+    );
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      final token = data['token'];
+
+      if (token == null) {
+        print("❌ Сервер не вернул токен");
+        return false;
+      }
+
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('auth_token', token);
+      await prefs.setString('email', email);
+      return true;
+    } else {
+      print("Ошибка входа: ${response.body}");
+      return false;
     }
   }
 
-  // Выход пользователя
-  Future<void> signOut() async {
-    await _auth.signOut();
+  Future<void> logout() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('auth_token');
+    await prefs.remove('email');
   }
 }
