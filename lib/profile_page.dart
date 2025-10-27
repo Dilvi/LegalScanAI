@@ -18,7 +18,7 @@ class ProfilePage extends StatefulWidget {
   State<ProfilePage> createState() => _ProfilePageState();
 }
 
-class _ProfilePageState extends State<ProfilePage> {
+class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStateMixin {
   File? _avatarImage;
   bool _isLoggedIn = false;
   String _email = '';
@@ -54,14 +54,11 @@ class _ProfilePageState extends State<ProfilePage> {
   Future<void> _pickAvatarImage() async {
     final picker = ImagePicker();
     final picked = await picker.pickImage(source: ImageSource.gallery);
-
     if (picked != null) {
       final directory = await getApplicationDocumentsDirectory();
       final path = '${directory.path}/avatar.png';
       final imageFile = File(picked.path);
-
       await imageFile.copy(path);
-
       setState(() {
         _avatarImage = File(path);
       });
@@ -83,35 +80,41 @@ class _ProfilePageState extends State<ProfilePage> {
   void _showAvatarOptions() {
     showModalBottomSheet(
       context: context,
+      isScrollControlled: true, // ✅ чтобы учитывать всю высоту экрана
+      backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (context) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.photo_library),
-              title: const Text("Загрузить новый аватар"),
-              onTap: () {
-                Navigator.pop(context);
-                _pickAvatarImage();
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.delete),
-              title: const Text("Удалить текущий аватар"),
-              onTap: () {
-                Navigator.pop(context);
-                _deleteAvatarImage();
-              },
-            ),
-          ],
+      builder: (context) => SafeArea( // ✅ оборачиваем в SafeArea
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.photo_library),
+                title: const Text("Загрузить новый аватар"),
+                onTap: () {
+                  Navigator.pop(context);
+                  _pickAvatarImage();
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.delete),
+                title: const Text("Удалить текущий аватар"),
+                onTap: () {
+                  Navigator.pop(context);
+                  _deleteAvatarImage();
+                },
+              ),
+              const SizedBox(height: 10),
+            ],
+          ),
         ),
       ),
     );
   }
+
 
   Future<void> _signOut() async {
     final prefs = await SharedPreferences.getInstance();
@@ -132,15 +135,15 @@ class _ProfilePageState extends State<ProfilePage> {
 
   @override
   Widget build(BuildContext context) {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final scale = screenWidth / 360;
+    final scale = MediaQuery.of(context).size.width / 360;
 
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
+        bottom: false, // чтобы нижняя панель не сжималась
         child: Column(
           children: [
-            // Верхняя панель
+            // 📍 Верхняя панель
             Padding(
               padding: EdgeInsets.symmetric(horizontal: 20 * scale, vertical: 12 * scale),
               child: Row(
@@ -168,84 +171,105 @@ class _ProfilePageState extends State<ProfilePage> {
               ),
             ),
 
-            SizedBox(height: 32 * scale),
+            const SizedBox(height: 24),
 
-            // Аватарка
+            // 📸 Аватар
             GestureDetector(
               onTap: _isLoggedIn ? _showAvatarOptions : null,
-              child: CircleAvatar(
-                radius: 40 * scale,
-                backgroundColor: const Color(0xFF800000),
-                backgroundImage: _avatarImage != null ? FileImage(_avatarImage!) : null,
-                child: _avatarImage == null
-                    ? Icon(Icons.person, size: 40 * scale, color: Colors.white)
-                    : null,
+              child: Hero(
+                tag: 'profileAvatar',
+                child: CircleAvatar(
+                  radius: 40 * scale,
+                  backgroundColor: const Color(0xFF800000),
+                  backgroundImage: _avatarImage != null ? FileImage(_avatarImage!) : null,
+                  child: _avatarImage == null
+                      ? Icon(Icons.person, size: 40 * scale, color: Colors.white)
+                      : null,
+                ),
               ),
             ),
 
             const SizedBox(height: 12),
 
             if (_isLoggedIn)
-              Text(
-                _email,
-                style: TextStyle(
-                  fontFamily: 'DM Sans',
-                  fontSize: 14,
-                  color: Colors.black54,
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 300),
+                child: Text(
+                  _email,
+                  key: ValueKey(_email),
+                  style: const TextStyle(
+                    fontFamily: 'DM Sans',
+                    fontSize: 14,
+                    color: Colors.black54,
+                  ),
                 ),
               ),
 
-            SizedBox(height: 32 * scale),
+            const SizedBox(height: 32),
 
-            // Кнопки профиля
-            _buildProfileButton("Личные данные", const PersonalDataPage(), scale),
-            SizedBox(height: 12 * scale),
-            _buildProfileButton("Безопасность и вход", const SecurityPage(), scale),
-            SizedBox(height: 12 * scale),
-            _buildProfileButton("Уведомления", const NotificationsPage(), scale),
-            SizedBox(height: 12 * scale),
-            _buildProfileButton("Подключить PRO версию", const SubscriptionPage(), scale),
+            // 📜 Список кнопок
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Column(
+                  children: [
+                    _buildProfileButton("Личные данные", const PersonalDataPage(), scale),
+                    const SizedBox(height: 12),
+                    _buildProfileButton("Безопасность и вход", const SecurityPage(), scale),
+                    const SizedBox(height: 12),
+                    _buildProfileButton("Уведомления", const NotificationsPage(), scale),
+                    const SizedBox(height: 12),
+                    _buildProfileButton("Подключить PRO версию", const SubscriptionPage(), scale),
+                    const SizedBox(height: 30),
+                  ],
+                ),
+              ),
+            ),
           ],
         ),
       ),
 
-      // Нижний бар
-      bottomNavigationBar: Container(
-        width: double.infinity,
-        height: 134,
-        decoration: const BoxDecoration(
-          color: Color(0xFF800000),
-          borderRadius: BorderRadius.only(
+      // 🧭 Нижняя панель
+      bottomNavigationBar: SafeArea(
+        top: false,
+        child: Material(
+          color: const Color(0xFF800000),
+          borderRadius: const BorderRadius.only(
             topLeft: Radius.circular(25),
             topRight: Radius.circular(25),
           ),
-        ),
-        child: Center(
-          child: SizedBox(
-            width: 327,
-            height: 52,
-            child: ElevatedButton(
-              onPressed: _isLoggedIn
-                  ? _signOut
-                  : () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const LoginPage()),
-                );
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.white,
-                foregroundColor: const Color(0xFF800000),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-              child: Text(
-                _isLoggedIn ? "Выйти из аккаунта" : "Войти в аккаунт",
-                style: const TextStyle(
-                  fontFamily: 'DM Sans',
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
+          child: Container(
+            width: double.infinity,
+            height: 134,
+            padding: const EdgeInsets.all(20),
+            child: Center(
+              child: SizedBox(
+                width: 327,
+                height: 52,
+                child: ElevatedButton(
+                  onPressed: _isLoggedIn
+                      ? _signOut
+                      : () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => const LoginPage()),
+                    );
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.white,
+                    foregroundColor: const Color(0xFF800000),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: Text(
+                    _isLoggedIn ? "Выйти из аккаунта" : "Войти в аккаунт",
+                    style: const TextStyle(
+                      fontFamily: 'DM Sans',
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -256,46 +280,53 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Widget _buildProfileButton(String label, Widget page, double scale) {
-    return Material(
-      color: _isLoggedIn ? Colors.white : Colors.grey[300],
-      borderRadius: BorderRadius.circular(10 * scale),
-      child: InkWell(
-        onTap: _isLoggedIn
-            ? () => Navigator.push(context, MaterialPageRoute(builder: (context) => page))
-            : null,
+    final enabled = _isLoggedIn;
+    return AnimatedOpacity(
+      duration: const Duration(milliseconds: 200),
+      opacity: enabled ? 1.0 : 0.6,
+      child: Material(
+        color: enabled ? Colors.white : Colors.grey[300],
         borderRadius: BorderRadius.circular(10 * scale),
-        splashColor: const Color(0x22800000),
-        highlightColor: Colors.transparent,
-        child: Container(
-          width: 318 * scale,
-          height: 52,
-          decoration: BoxDecoration(
-            color: _isLoggedIn ? Colors.white : Colors.grey[300],
-            borderRadius: BorderRadius.circular(10 * scale),
-            border: Border.all(color: const Color(0xFF800000), width: 1),
-          ),
-          padding: EdgeInsets.symmetric(horizontal: 16 * scale),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                label,
-                style: TextStyle(
-                  fontFamily: 'DM Sans',
-                  fontSize: 14 * scale,
-                  color: _isLoggedIn ? Colors.black : Colors.grey,
+        child: InkWell(
+          onTap: enabled
+              ? () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => page),
+          )
+              : null,
+          borderRadius: BorderRadius.circular(10 * scale),
+          splashColor: const Color(0x22800000),
+          highlightColor: Colors.transparent,
+          child: Container(
+            height: 52,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(10 * scale),
+              border: Border.all(color: const Color(0xFF800000), width: 1),
+            ),
+            padding: EdgeInsets.symmetric(horizontal: 16 * scale),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontFamily: 'DM Sans',
+                    fontSize: 14 * scale,
+                    color: enabled ? Colors.black : Colors.grey,
+                  ),
                 ),
-              ),
-              SvgPicture.asset(
-                'assets/arrow-right.svg',
-                width: 20 * scale,
-                height: 20 * scale,
-                color: _isLoggedIn ? Colors.black : Colors.grey,
-              ),
-            ],
+                SvgPicture.asset(
+                  'assets/arrow-right.svg',
+                  width: 20 * scale,
+                  height: 20 * scale,
+                  color: enabled ? Colors.black : Colors.grey,
+                ),
+              ],
+            ),
           ),
         ),
       ),
     );
   }
+
 }

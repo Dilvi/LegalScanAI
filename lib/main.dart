@@ -1,16 +1,14 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'home_page.dart';
 import 'login_page.dart';
 import 'start_page.dart';
-import 'pin_code_verify_page.dart'; // 👈 не забудь импортировать
+import 'pin_code_verify_page.dart';
+import 'services/auth_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp();
   runApp(const MyApp());
 }
 
@@ -83,10 +81,11 @@ class AuthWrapper extends StatelessWidget {
     final prefs = await SharedPreferences.getInstance();
     final pinEnabled = prefs.getBool('pin_enabled') ?? false;
 
-    final user = FirebaseAuth.instance.currentUser;
-    if (user != null) {
+    final isLoggedIn = await AuthService().isLoggedIn();
+
+    if (isLoggedIn) {
       if (pinEnabled) {
-        return const PinCodeVerifyPage(); // 👈 Показываем экран ввода PIN
+        return const PinCodeVerifyPage();
       } else {
         return const HomePage();
       }

@@ -33,6 +33,7 @@ dependencies:
   permission_handler: ^11.0.1
   share_plus: ^7.2.1
   video_player: ^2.7.0
+  another_flushbar: ^1.12.30
 
   mime: any
   http_parser: any

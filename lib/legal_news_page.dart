@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'dart:io';
+import 'package:path_provider/path_provider.dart';
 
 class LegalNewsPage extends StatefulWidget {
   const LegalNewsPage({super.key});
@@ -15,17 +17,30 @@ class _LegalNewsPageState extends State<LegalNewsPage> {
   int? selectedCategory;
   bool isLoading = true;
   bool hasError = false;
+  File? _avatarImage;
 
   @override
   void initState() {
     super.initState();
+    _loadAvatarImage();
     _fetchCategories();
     _fetchNews();
   }
 
+  Future<void> _loadAvatarImage() async {
+    final directory = await getApplicationDocumentsDirectory();
+    final path = '${directory.path}/avatar.png';
+    final avatarFile = File(path);
+    if (await avatarFile.exists()) {
+      setState(() {
+        _avatarImage = avatarFile;
+      });
+    }
+  }
+
   Future<void> _fetchCategories() async {
     try {
-      final res = await http.get(Uri.parse('http://95.165.74.131:8082/categories'));
+      final res = await http.get(Uri.parse('http://192.168.1.82:8082/categories'));
       if (res.statusCode == 200) {
         final data = jsonDecode(utf8.decode(res.bodyBytes));
         setState(() {
@@ -45,8 +60,8 @@ class _LegalNewsPageState extends State<LegalNewsPage> {
 
     try {
       final url = categoryId == null
-          ? 'http://95.165.74.131:8082/news'
-          : 'http://95.165.74.131:8082/news?category=$categoryId';
+          ? 'http://192.168.1.82:8082/news'
+          : 'http://192.168.1.82:8082/news?category=$categoryId';
 
       final res = await http.get(Uri.parse(url));
       if (res.statusCode == 200) {
@@ -93,7 +108,7 @@ class _LegalNewsPageState extends State<LegalNewsPage> {
 
     if (hasError) {
       return RefreshIndicator(
-        onRefresh: _fetchNews,
+        onRefresh: () => _fetchNews(categoryId: selectedCategory),
         color: const Color(0xFF800000),
         child: ListView(
           physics: const AlwaysScrollableScrollPhysics(),
@@ -105,64 +120,114 @@ class _LegalNewsPageState extends State<LegalNewsPage> {
       );
     }
 
-    return Column(
-      children: [
-        // 🧭 Полоска категорий
-        SizedBox(
-          height: 50,
-          child: ListView.builder(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            itemCount: categories.length,
-            itemBuilder: (context, index) {
-              final cat = categories[index];
-              final bool isSelected = selectedCategory == cat['id'];
-              return GestureDetector(
-                onTap: () {
-                  setState(() {
-                    selectedCategory = isSelected ? null : cat['id'];
-                  });
-                  _fetchNews(categoryId: isSelected ? null : cat['id']);
-                },
-                child: Container(
-                  margin: const EdgeInsets.only(right: 8),
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                  decoration: BoxDecoration(
-                    color: isSelected ? const Color(0xFF800000) : const Color(0xFFF4E5E5),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Text(
-                    cat['title'],
-                    style: TextStyle(
-                      color: isSelected ? Colors.white : Colors.black,
-                      fontWeight: FontWeight.w500,
-                      fontFamily: 'DM Sans',
+    return RefreshIndicator(
+      onRefresh: () => _fetchNews(categoryId: selectedCategory),
+      color: const Color(0xFF800000),
+      child: CustomScrollView(
+        slivers: [
+          // 🧭 Шапка
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  GestureDetector(
+                    onTap: () {
+                      // 👉 Переход в профиль (при необходимости)
+                    },
+                    child: CircleAvatar(
+                      radius: 22.5,
+                      backgroundColor: const Color(0xFF800000),
+                      backgroundImage:
+                      _avatarImage != null ? FileImage(_avatarImage!) : null,
+                      child: _avatarImage == null
+                          ? const Icon(Icons.person, color: Colors.white)
+                          : null,
                     ),
                   ),
-                ),
-              );
-            },
-          ),
-        ),
-
-        const SizedBox(height: 10),
-
-        // 📰 Лента новостей
-        Expanded(
-          child: RefreshIndicator(
-            onRefresh: () => _fetchNews(categoryId: selectedCategory),
-            color: const Color(0xFF800000),
-            child: ListView.builder(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              itemCount: newsList.length,
-              itemBuilder: (context, index) {
-                final item = newsList[index];
-                return _buildNewsCard(item, index);
-              },
+                  const SizedBox(height: 8),
+                  const Text(
+                    "ЮрНовости",
+                    style: TextStyle(
+                      fontFamily: 'DM Sans',
+                      fontSize: 34,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black,
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  const Text(
+                    "Свежие юридические события и прецеденты",
+                    style: TextStyle(
+                      fontFamily: 'DM Sans',
+                      fontSize: 15,
+                      color: Color(0xFF737C97),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                ],
+              ),
             ),
           ),
-        ),
-      ],
+
+          // 📌 Категории
+          SliverToBoxAdapter(
+            child: SizedBox(
+              height: 50,
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                itemCount: categories.length,
+                itemBuilder: (context, index) {
+                  final cat = categories[index];
+                  final bool isSelected = selectedCategory == cat['id'];
+                  return GestureDetector(
+                    onTap: () {
+                      setState(() {
+                        selectedCategory = isSelected ? null : cat['id'];
+                      });
+                      _fetchNews(categoryId: isSelected ? null : cat['id']);
+                    },
+                    child: Container(
+                      margin: const EdgeInsets.only(right: 8),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: isSelected ? const Color(0xFF800000) : const Color(0xFFF4E5E5),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        cat['title'],
+                        style: TextStyle(
+                          color: isSelected ? Colors.white : Colors.black,
+                          fontWeight: FontWeight.w500,
+                          fontFamily: 'DM Sans',
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
+
+          const SliverToBoxAdapter(child: SizedBox(height: 10)),
+
+          // 📰 Новости
+          SliverPadding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            sliver: SliverList(
+              delegate: SliverChildBuilderDelegate(
+                    (context, index) {
+                  final item = newsList[index];
+                  return _buildNewsCard(item, index);
+                },
+                childCount: newsList.length,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -191,6 +256,11 @@ class _LegalNewsPageState extends State<LegalNewsPage> {
               height: 180,
               width: double.infinity,
               fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => Container(
+                height: 180,
+                color: const Color(0xFFE0E0E0),
+                child: const Center(child: Icon(Icons.image_not_supported)),
+              ),
             ),
           ),
           Padding(
