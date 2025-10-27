@@ -3,8 +3,9 @@ import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class AuthService {
-  final String baseUrl = "http://95.165.74.131:8080";
+  final String baseUrl = "http://192.168.1.82:8080"; // 🧠 твой локальный сервер
 
+  /// 📌 Регистрация
   Future<bool> register(String email, String password, String phone) async {
     final response = await http.post(
       Uri.parse("$baseUrl/register"),
@@ -19,11 +20,7 @@ class AuthService {
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body);
       final token = data['token'];
-
-      if (token == null) {
-        print("❌ Сервер не вернул токен");
-        return false;
-      }
+      if (token == null) return false;
 
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('auth_token', token);
@@ -38,6 +35,7 @@ class AuthService {
     }
   }
 
+  /// 📌 Вход
   Future<bool> login(String email, String password) async {
     final response = await http.post(
       Uri.parse("$baseUrl/login"),
@@ -51,11 +49,7 @@ class AuthService {
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body);
       final token = data['token'];
-
-      if (token == null) {
-        print("❌ Сервер не вернул токен");
-        return false;
-      }
+      if (token == null) return false;
 
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('auth_token', token);
@@ -67,6 +61,20 @@ class AuthService {
     }
   }
 
+  /// 📌 Проверка, авторизован ли пользователь
+  Future<bool> isLoggedIn() async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('auth_token');
+    return token != null && token.isNotEmpty;
+  }
+
+  /// 📌 Получение токена
+  Future<String?> getToken() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('auth_token');
+  }
+
+  /// 📌 Выход из аккаунта
   Future<void> logout() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('auth_token');

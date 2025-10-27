@@ -4,6 +4,7 @@ import 'package:path_provider/path_provider.dart';
 import 'dart:io';
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:another_flushbar/flushbar.dart';
 
 import 'profile_page.dart';
 import 'chat_page.dart';
@@ -30,7 +31,7 @@ class _HomePageState extends State<HomePage> {
   bool isSelectionMode = false;
   File? _avatarImage;
 
-  final PageController _pageController = PageController(initialPage: 1); // 👈 по центру — проверки
+  final PageController _pageController = PageController(initialPage: 1);
   int _currentPage = 1;
 
   @override
@@ -62,6 +63,12 @@ class _HomePageState extends State<HomePage> {
     });
   }
 
+  Future<void> _saveRecentChecks() async {
+    final prefs = await SharedPreferences.getInstance();
+    final encoded = recentChecks.map((e) => jsonEncode(e)).toList();
+    await prefs.setStringList('recentChecks', encoded);
+  }
+
   Future<void> _refresh() async {
     await _loadRecentChecks();
   }
@@ -77,6 +84,37 @@ class _HomePageState extends State<HomePage> {
         MaterialPageRoute(builder: (_) => pageBuilder(selectedType)),
       );
     }
+  }
+
+  void _showCustomNotification(String message, {Color background = const Color(0xFF800000)}) {
+    Flushbar(
+      messageText: Text(
+        message,
+        style: const TextStyle(
+          fontFamily: 'DM Sans',
+          color: Colors.white,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+      margin: const EdgeInsets.only(left: 12, right: 12, bottom: 235),
+      borderRadius: BorderRadius.circular(14),
+      backgroundColor: background,
+      duration: const Duration(seconds: 2),
+      flushbarPosition: FlushbarPosition.BOTTOM,
+    ).show(context);
+  }
+
+  void _deleteSelected() {
+    setState(() {
+      final indexes = selectedIndexes.toList()..sort((a, b) => b.compareTo(a));
+      for (final index in indexes) {
+        recentChecks.removeAt(index);
+      }
+      selectedIndexes.clear();
+      isSelectionMode = false;
+    });
+    _saveRecentChecks();
+    _showCustomNotification("Выбранные проверки удалены");
   }
 
   @override
@@ -102,6 +140,12 @@ class _HomePageState extends State<HomePage> {
             color: Colors.black,
           ),
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.delete, color: Colors.black),
+            onPressed: selectedIndexes.isEmpty ? null : _deleteSelected,
+          )
+        ],
       )
           : null,
       body: SafeArea(
@@ -116,9 +160,9 @@ class _HomePageState extends State<HomePage> {
                   setState(() => _currentPage = index);
                 },
                 children: [
-                  const LegalNewsPage(), // 👈 влево
-                  _buildRecentChecksPage(), // 👈 по центру
-                  const LegalDatabasePage(), // 👈 вправо
+                  const LegalNewsPage(),
+                  _buildRecentChecksPage(),
+                  const LegalDatabasePage(),
                 ],
               ),
             ),
@@ -200,7 +244,6 @@ class _HomePageState extends State<HomePage> {
         separatorBuilder: (context, index) => const Divider(height: 1, color: Color(0xFFE0E0E0)),
         itemBuilder: (context, index) {
           final item = recentChecks[index];
-          final hasFile = item.containsKey('filePath');
           final riskValue = item['hasRisk'];
           String riskIcon;
 
@@ -212,11 +255,39 @@ class _HomePageState extends State<HomePage> {
             riskIcon = 'assets/Unknown.svg';
           }
 
-          return ListTile(
-            leading: SvgPicture.asset('assets/doc.svg', width: 45, height: 45),
-            title: Text(item['type'] ?? 'Неизвестно'),
-            subtitle: Text(item['date'] ?? ''),
-            trailing: SvgPicture.asset(riskIcon, width: 24, height: 24),
+          final isSelected = selectedIndexes.contains(index);
+
+          return GestureDetector(
+            onLongPress: () {
+              setState(() {
+                isSelectionMode = true;
+                selectedIndexes.add(index);
+              });
+            },
+            onTap: () {
+              if (isSelectionMode) {
+                setState(() {
+                  if (isSelected) {
+                    selectedIndexes.remove(index);
+                    if (selectedIndexes.isEmpty) isSelectionMode = false;
+                  } else {
+                    selectedIndexes.add(index);
+                  }
+                });
+              }
+            },
+            child: Container(
+              decoration: BoxDecoration(
+                color: isSelected ? const Color(0xFFFFE4E4) : Colors.transparent,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: ListTile(
+                leading: SvgPicture.asset('assets/doc.svg', width: 45, height: 45),
+                title: Text(item['type'] ?? 'Неизвестно'),
+                subtitle: Text(item['date'] ?? ''),
+                trailing: SvgPicture.asset(riskIcon, width: 24, height: 24),
+              ),
+            ),
           );
         },
       ),
