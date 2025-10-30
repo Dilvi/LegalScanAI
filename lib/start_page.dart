@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:smooth_page_indicator/smooth_page_indicator.dart';
-import 'login_page.dart'; // обязательно импортируй
+import 'login_page.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'home_page.dart';
-
 
 class StartPage extends StatefulWidget {
   const StartPage({super.key});
@@ -35,9 +34,9 @@ class _StartPageState extends State<StartPage> {
       "image": "assets/start_icon_3.png",
     },
     {
-      "title": "ВАШИ ДАННЫЕ\nВ БЕЗОПАСНОСТИ",
+      "title": "ВАШИ ДАННЫЕ\nПОД НАДЁЖНОЙ ЗАЩИТОЙ",
       "subtitle":
-      "Документ анализирует локальная нейросеть на вашем устройстве и не допустит утечки конфиденциальных данных",
+      "Анализ выполняется с помощью защищённой нейросети Сбера. Данные шифруются и не сохраняются — ваша конфиденциальность полностью соблюдается.",
       "image": "assets/start_icon_4.png",
     },
   ];
@@ -51,22 +50,20 @@ class _StartPageState extends State<StartPage> {
         curve: Curves.easeInOut,
       );
     } else {
-      // Проверка авторизации
       final user = FirebaseAuth.instance.currentUser;
       if (user != null) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => const HomePage()),
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const HomePage()),
+              (route) => false,
         );
       } else {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => const LoginPage()),
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const LoginPage()),
+              (route) => false,
         );
       }
     }
   }
-
 
   @override
   Widget build(BuildContext context) {
@@ -84,9 +81,7 @@ class _StartPageState extends State<StartPage> {
                   controller: _pageController,
                   itemCount: _pages.length,
                   onPageChanged: (index) {
-                    setState(() {
-                      _currentIndex = index;
-                    });
+                    setState(() => _currentIndex = index);
                   },
                   itemBuilder: (context, index) => Column(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -115,6 +110,7 @@ class _StartPageState extends State<StartPage> {
                           fontFamily: 'DM Sans',
                           fontSize: 14 * scale,
                           color: const Color(0xFF737C97),
+                          height: 1.4,
                         ),
                       ),
                     ],

@@ -14,7 +14,7 @@ import 'upload_file_page.dart';
 import 'saved_check.dart';
 import 'file_type_choice_page.dart';
 
-// 👇 Новые импорты для слайдов
+// 👇 Страницы
 import 'legal_news_page.dart';
 import 'legal_database_page.dart';
 
@@ -34,6 +34,10 @@ class _HomePageState extends State<HomePage> {
   final PageController _pageController = PageController(initialPage: 1);
   int _currentPage = 1;
 
+  // Кэшируем страницы
+  late final LegalNewsPage _newsPage = const LegalNewsPage();
+  late final LegalDatabasePage _databasePage = const LegalDatabasePage();
+
   @override
   void initState() {
     super.initState();
@@ -46,9 +50,7 @@ class _HomePageState extends State<HomePage> {
     final path = '${directory.path}/avatar.png';
     final avatarFile = File(path);
     if (await avatarFile.exists()) {
-      setState(() {
-        _avatarImage = avatarFile;
-      });
+      setState(() => _avatarImage = avatarFile);
     }
   }
 
@@ -154,18 +156,90 @@ class _HomePageState extends State<HomePage> {
           children: [
             _buildHeader(),
             Expanded(
-              child: PageView(
-                controller: _pageController,
-                onPageChanged: (index) {
-                  setState(() => _currentPage = index);
-                },
+              child: Stack(
                 children: [
-                  const LegalNewsPage(),
-                  _buildRecentChecksPage(),
-                  const LegalDatabasePage(),
+                  // Основной контент
+                  PageView(
+                    controller: _pageController,
+                    onPageChanged: (index) => setState(() => _currentPage = index),
+                    children: [
+                      _newsPage,
+                      _buildRecentChecksPage(),
+                      _databasePage,
+                    ],
+                  ),
+
+                  // 👈 Кнопка "Новости" — показываем только на средней вкладке
+                  if (_currentPage == 1)
+                    Positioned(
+                      left: 10,
+                      bottom: 25,
+                      child: GestureDetector(
+                        onTap: () {
+                          _pageController.previousPage(
+                            duration: const Duration(milliseconds: 400),
+                            curve: Curves.easeOutCubic,
+                          );
+                        },
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: const [
+                            Icon(Icons.arrow_back_ios_new,
+                                color: Color(0xFF800000), size: 18),
+                            SizedBox(height: 4),
+                            Icon(Icons.article_outlined,
+                                color: Color(0xFF800000), size: 26),
+                            SizedBox(height: 2),
+                            Text(
+                              "Новости",
+                              style: TextStyle(
+                                fontFamily: 'DM Sans',
+                                fontSize: 11,
+                                color: Color(0xFF800000),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+
+                  // 👉 Кнопка "База" — тоже только на средней вкладке
+                  if (_currentPage == 1)
+                    Positioned(
+                      right: 10,
+                      bottom: 25,
+                      child: GestureDetector(
+                        onTap: () {
+                          _pageController.nextPage(
+                            duration: const Duration(milliseconds: 400),
+                            curve: Curves.easeOutCubic,
+                          );
+                        },
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: const [
+                            Icon(Icons.arrow_forward_ios,
+                                color: Color(0xFF800000), size: 18),
+                            SizedBox(height: 4),
+                            Icon(Icons.balance_outlined,
+                                color: Color(0xFF800000), size: 26),
+                            SizedBox(height: 2),
+                            Text(
+                              "База",
+                              style: TextStyle(
+                                fontFamily: 'DM Sans',
+                                fontSize: 11,
+                                color: Color(0xFF800000),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
                 ],
               ),
             ),
+
           ],
         ),
       ),
@@ -179,6 +253,7 @@ class _HomePageState extends State<HomePage> {
   Widget _buildHeader() {
     String title;
     String subtitle;
+
     if (_currentPage == 0) {
       title = "ЮрНовости";
       subtitle = "Свежие юридические события и прецеденты";
@@ -192,43 +267,49 @@ class _HomePageState extends State<HomePage> {
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
-      child: Column(
+      child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          GestureDetector(
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const ProfilePage()),
-            ),
-            child: CircleAvatar(
-              radius: 22.5,
-              backgroundColor: const Color(0xFF800000),
-              backgroundImage: _avatarImage != null ? FileImage(_avatarImage!) : null,
-              child: _avatarImage == null
-                  ? const Icon(Icons.person, color: Colors.white)
-                  : null,
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                GestureDetector(
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const ProfilePage()),
+                  ),
+                  child: CircleAvatar(
+                    radius: 22.5,
+                    backgroundColor: const Color(0xFF800000),
+                    backgroundImage: _avatarImage != null ? FileImage(_avatarImage!) : null,
+                    child: _avatarImage == null
+                        ? const Icon(Icons.person, color: Colors.white)
+                        : null,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontFamily: 'DM Sans',
+                    fontSize: 34,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black,
+                  ),
+                ),
+                const SizedBox(height: 14),
+                Text(
+                  subtitle,
+                  style: const TextStyle(
+                    fontFamily: 'DM Sans',
+                    fontSize: 15,
+                    color: Color(0xFF737C97),
+                  ),
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 8),
-          Text(
-            title,
-            style: const TextStyle(
-              fontFamily: 'DM Sans',
-              fontSize: 34,
-              fontWeight: FontWeight.bold,
-              color: Colors.black,
-            ),
-          ),
-          const SizedBox(height: 14),
-          Text(
-            subtitle,
-            style: const TextStyle(
-              fontFamily: 'DM Sans',
-              fontSize: 15,
-              color: Color(0xFF737C97),
-            ),
-          ),
-          const SizedBox(height: 16),
         ],
       ),
     );
@@ -241,10 +322,12 @@ class _HomePageState extends State<HomePage> {
       child: ListView.separated(
         padding: const EdgeInsets.only(bottom: 230, left: 20, right: 20),
         itemCount: recentChecks.length,
-        separatorBuilder: (context, index) => const Divider(height: 1, color: Color(0xFFE0E0E0)),
+        separatorBuilder: (context, index) =>
+        const Divider(height: 1, color: Color(0xFFE0E0E0)),
         itemBuilder: (context, index) {
           final item = recentChecks[index];
           final riskValue = item['hasRisk'];
+          final isSaved = item.containsKey('filePath');
           String riskIcon;
 
           if (riskValue == true) {
@@ -264,7 +347,7 @@ class _HomePageState extends State<HomePage> {
                 selectedIndexes.add(index);
               });
             },
-            onTap: () {
+            onTap: () async {
               if (isSelectionMode) {
                 setState(() {
                   if (isSelected) {
@@ -274,18 +357,63 @@ class _HomePageState extends State<HomePage> {
                     selectedIndexes.add(index);
                   }
                 });
+              } else {
+                if (isSaved && item['filePath'] != null) {
+                  final file = File(item['filePath']);
+                  if (await file.exists()) {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => SavedCheckPage(filePath: item['filePath']),
+                      ),
+                    );
+                  } else {
+                    _showCustomNotification(
+                      "Файл не найден. Возможно, он был удалён.",
+                      background: Colors.red,
+                    );
+                  }
+                } else {
+                  _showCustomNotification(
+                    "Проверка не была сохранена",
+                    background: Colors.grey,
+                  );
+                }
               }
             },
-            child: Container(
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
               decoration: BoxDecoration(
                 color: isSelected ? const Color(0xFFFFE4E4) : Colors.transparent,
                 borderRadius: BorderRadius.circular(8),
               ),
               child: ListTile(
                 leading: SvgPicture.asset('assets/doc.svg', width: 45, height: 45),
-                title: Text(item['type'] ?? 'Неизвестно'),
-                subtitle: Text(item['date'] ?? ''),
-                trailing: SvgPicture.asset(riskIcon, width: 24, height: 24),
+                title: Text(
+                  item['type'] ?? 'Неизвестно',
+                  style: const TextStyle(
+                    fontFamily: 'DM Sans',
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                subtitle: Text(
+                  item['date'] ?? '',
+                  style: const TextStyle(
+                    fontFamily: 'DM Sans',
+                    fontSize: 13,
+                    color: Color(0xFF737C97),
+                  ),
+                ),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (isSaved)
+                      const Icon(Icons.check_circle, color: Colors.green, size: 22),
+                    const SizedBox(width: 10),
+                    SvgPicture.asset(riskIcon, width: 24, height: 24),
+                  ],
+                ),
               ),
             ),
           );
