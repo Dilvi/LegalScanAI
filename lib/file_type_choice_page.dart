@@ -17,7 +17,6 @@ class _FileTypeChoicePageState extends State<FileTypeChoicePage> {
   final TextEditingController _searchController = TextEditingController();
 
   final List<DocumentType> _allTypes = [
-    // 🤖 Автоматическое определение
     DocumentType("🤖 Определить автоматически", "auto_detect"),
 
     // 🏠 Недвижимость
@@ -72,7 +71,7 @@ class _FileTypeChoicePageState extends State<FileTypeChoicePage> {
     DocumentType("Исполнительный лист", "writ_of_execution"),
     DocumentType("Судебный приказ", "court_order"),
 
-    // 🏢 Прочие
+    // 📑 Прочие
     DocumentType("Трудовой договор", "employment_contract"),
     DocumentType("Заявление об увольнении", "resignation_letter"),
     DocumentType("Должностная инструкция", "job_instruction"),
@@ -113,10 +112,13 @@ class _FileTypeChoicePageState extends State<FileTypeChoicePage> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text("Определить автоматически?"),
+        title: const Text(
+          "Определить автоматически?",
+          style: TextStyle(fontFamily: 'DM Sans', fontWeight: FontWeight.bold),
+        ),
         content: const Text(
           "⚠️ Автоматическое определение типа документа может быть менее точным.\n\n"
-              "Рекомендуется выбрать тип вручную, если вы хотите получить максимально точный результат анализа.",
+              "Рекомендуется выбрать тип вручную для максимальной точности анализа.",
           style: TextStyle(fontFamily: 'DM Sans'),
         ),
         actions: [
@@ -126,10 +128,7 @@ class _FileTypeChoicePageState extends State<FileTypeChoicePage> {
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text(
-              "Продолжить",
-              style: TextStyle(color: Colors.red),
-            ),
+            child: const Text("Продолжить", style: TextStyle(color: Colors.red)),
           ),
         ],
       ),
@@ -143,6 +142,7 @@ class _FileTypeChoicePageState extends State<FileTypeChoicePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.white,
       appBar: AppBar(
         title: const Text(
           "Выберите тип документа",
@@ -156,52 +156,79 @@ class _FileTypeChoicePageState extends State<FileTypeChoicePage> {
         iconTheme: const IconThemeData(color: Colors.black),
         elevation: 1,
       ),
-      backgroundColor: Colors.white,
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: TextField(
-              controller: _searchController,
-              decoration: InputDecoration(
-                hintText: "Поиск...",
-                prefixIcon: const Icon(Icons.search),
-                filled: true,
-                fillColor: Colors.grey[100],
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide.none,
+      body: SafeArea(
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+              child: TextField(
+                controller: _searchController,
+                decoration: InputDecoration(
+                  hintText: "Поиск по типу документа...",
+                  prefixIcon: const Icon(Icons.search),
+                  filled: true,
+                  fillColor: Colors.grey[100],
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide.none,
+                  ),
                 ),
               ),
             ),
-          ),
-          Expanded(
-            child: ListView.separated(
-              itemCount: _filteredTypes.length,
-              separatorBuilder: (_, __) => const Divider(height: 1),
-              itemBuilder: (context, index) {
-                final type = _filteredTypes[index];
-                return ListTile(
-                  title: Text(
-                    type.title,
-                    style: const TextStyle(
-                      fontFamily: 'DM Sans',
-                      fontSize: 16,
-                      fontWeight: FontWeight.w500,
+            Expanded(
+              child: ListView.separated(
+                physics: const BouncingScrollPhysics(),
+                itemCount: _filteredTypes.length,
+                separatorBuilder: (_, __) => const Divider(
+                  height: 1,
+                  indent: 16,
+                  endIndent: 16,
+                  color: Color(0xFFE0E0E0),
+                ),
+                itemBuilder: (context, index) {
+                  final type = _filteredTypes[index];
+                  final bool isAuto = type.slug == "auto_detect";
+
+                  return InkWell(
+                    borderRadius: BorderRadius.circular(10),
+                    splashColor: const Color(0x11800000),
+                    onTap: () {
+                      if (isAuto) {
+                        _handleAutoDetect(context);
+                      } else {
+                        Navigator.pop(context, type.slug);
+                      }
+                    },
+                    child: Padding(
+                      padding:
+                      const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Flexible(
+                            child: Text(
+                              type.title,
+                              style: TextStyle(
+                                fontFamily: 'DM Sans',
+                                fontSize: 16,
+                                fontWeight: isAuto ? FontWeight.w600 : FontWeight.w400,
+                                color: isAuto
+                                    ? const Color(0xFF800000)
+                                    : Colors.black,
+                              ),
+                            ),
+                          ),
+                          const Icon(Icons.arrow_forward_ios_rounded,
+                              size: 18, color: Color(0xFF737C97)),
+                        ],
+                      ),
                     ),
-                  ),
-                  onTap: () {
-                    if (type.slug == "auto_detect") {
-                      _handleAutoDetect(context);
-                    } else {
-                      Navigator.pop(context, type.slug);
-                    }
-                  },
-                );
-              },
+                  );
+                },
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

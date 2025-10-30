@@ -36,6 +36,65 @@ class _ResultPageState extends State<ResultPage>
   late AnimationController _animController;
   late Animation<double> _fadeIn;
 
+  // ✅ Сопоставление slug → нормальное название
+  static const Map<String, String> docTypeNames = {
+    "auto_detect": "Определить автоматически",
+    "apartment_sale": "Договор купли-продажи квартиры",
+    "house_sale": "Договор купли-продажи дома",
+    "real_estate_gift": "Договор дарения недвижимости",
+    "apartment_rent": "Договор аренды квартиры",
+    "house_rent": "Договор аренды дома",
+    "residential_hire": "Договор найма жилого помещения",
+    "mortgage_pledge": "Договор залога недвижимости",
+    "property_exchange": "Договор мены недвижимости",
+    "car_sale": "Договор купли-продажи автомобиля",
+    "car_gift": "Договор дарения автомобиля",
+    "car_rent": "Договор аренды транспортного средства",
+    "car_leasing": "Договор лизинга автомобиля",
+    "will": "Завещание",
+    "marriage_contract": "Брачный договор",
+    "marriage_certificate": "Свидетельство о браке",
+    "birth_certificate": "Свидетельство о рождении",
+    "death_certificate": "Свидетельство о смерти",
+    "power_of_attorney": "Доверенность",
+    "contract_work": "Договор подряда",
+    "service_contract": "Договор оказания услуг",
+    "loan_agreement": "Договор займа",
+    "guarantee_agreement": "Договор поручительства",
+    "commercial_rent": "Договор аренды нежилого помещения",
+    "storage_contract": "Договор ответственного хранения",
+    "equipment_sale": "Договор купли-продажи оборудования",
+    "equipment_rent": "Договор аренды оборудования",
+    "gratuitous_use": "Договор безвозмездного пользования",
+    "supply_contract": "Договор поставки",
+    "company_charter": "Устав организации",
+    "entrepreneur_contract": "Договор с ИП",
+    "company_contract": "Договор с ООО",
+    "business_loan": "Договор займа между юрлицами",
+    "entrepreneur_work": "Договор подряда с ИП",
+    "goods_supply": "Договор поставки товаров",
+    "lawsuit": "Исковое заявление",
+    "settlement_agreement": "Мировое соглашение",
+    "notary_agreement": "Нотариальное соглашение",
+    "court_decision": "Решение суда",
+    "writ_of_execution": "Исполнительный лист",
+    "court_order": "Судебный приказ",
+    "employment_contract": "Трудовой договор",
+    "resignation_letter": "Заявление об увольнении",
+    "job_instruction": "Должностная инструкция",
+    "commercial_offer": "Коммерческое предложение",
+    "act_completed": "Акт выполненных работ",
+    "invoice": "Накладная",
+    "bill": "Счёт",
+    "franchise_agreement": "Договор франшизы",
+    "share_sale": "Договор купли-продажи доли",
+    "license_agreement": "Лицензионный договор",
+  };
+
+  String getReadableDocType() {
+    return docTypeNames[widget.docType] ?? widget.docType;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -52,6 +111,27 @@ class _ResultPageState extends State<ResultPage>
   void dispose() {
     _animController.dispose();
     super.dispose();
+  }
+
+  void _showSnack(String message, {bool error = false}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        backgroundColor: error ? Colors.red : const Color(0xFF800000),
+        behavior: SnackBarBehavior.floating,
+        margin: const EdgeInsets.all(16),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        content: Text(
+          message,
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+            fontFamily: 'DM Sans',
+            fontSize: 14,
+            color: Colors.white,
+          ),
+        ),
+        duration: const Duration(seconds: 2),
+      ),
+    );
   }
 
   @override
@@ -100,8 +180,6 @@ class _ResultPageState extends State<ResultPage>
                   children: [
                     _buildRiskBanner(hasRisk),
                     const SizedBox(height: 20),
-
-                    // ✨ Брендовая подпись — всегда показываем
                     const Text(
                       "✨ Результат анализа от LegalScanAI",
                       style: TextStyle(
@@ -112,8 +190,6 @@ class _ResultPageState extends State<ResultPage>
                       ),
                     ),
                     const SizedBox(height: 12),
-
-                    // 📄 Текст нейросети
                     Html(
                       data: widget.analyzedText,
                       style: {
@@ -135,18 +211,6 @@ class _ResultPageState extends State<ResultPage>
                         ),
                         "b": Style(fontWeight: FontWeight.bold),
                         "i": Style(fontStyle: FontStyle.italic),
-                        "hr": Style(
-                          margin: Margins.symmetric(vertical: 12),
-                          border: Border(
-                            top: BorderSide(
-                                color: Colors.grey.shade300, width: 1),
-                          ),
-                        ),
-                        "code": Style(
-                          backgroundColor: Colors.grey.shade200,
-                          padding: HtmlPaddings.all(4),
-                          fontFamily: 'monospace',
-                        ),
                       },
                     ),
                   ],
@@ -296,7 +360,7 @@ class _ResultPageState extends State<ResultPage>
 
     if (!isSaved) {
       final checkData = {
-        'type': widget.docType,
+        'type': getReadableDocType(), // ✅ читаемое имя
         'date': formattedDate,
         'hasRisk': widget.hasRisk,
       };
@@ -326,7 +390,7 @@ class _ResultPageState extends State<ResultPage>
       await file.writeAsString(widget.analyzedText);
 
       final newCheck = {
-        'type': widget.docType,
+        'type': getReadableDocType(), // ✅ читаемое имя
         'date': formattedDate,
         'hasRisk': widget.hasRisk,
         'filePath': filePath,
@@ -337,17 +401,9 @@ class _ResultPageState extends State<ResultPage>
 
       if (!mounted) return;
       setState(() => isSaved = true);
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Результат сохранён'),
-          backgroundColor: Colors.green,
-        ),
-      );
+      _showSnack("Результат сохранён");
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Ошибка: $e"), backgroundColor: Colors.red),
-      );
+      _showSnack("Ошибка: $e", error: true);
     }
   }
 
@@ -360,11 +416,7 @@ class _ResultPageState extends State<ResultPage>
       await file.writeAsString(widget.analyzedText);
       await Share.shareXFiles([XFile(file.path)], text: 'Результат анализа');
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-            content: Text('Ошибка при отправке: $e'),
-            backgroundColor: Colors.red),
-      );
+      _showSnack('Ошибка при отправке: $e', error: true);
     }
   }
 
