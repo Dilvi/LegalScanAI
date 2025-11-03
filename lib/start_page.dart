@@ -3,6 +3,7 @@ import 'package:smooth_page_indicator/smooth_page_indicator.dart';
 import 'login_page.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'home_page.dart';
+import 'register_page.dart';
 
 class StartPage extends StatefulWidget {
   const StartPage({super.key});
@@ -50,18 +51,16 @@ class _StartPageState extends State<StartPage> {
         curve: Curves.easeInOut,
       );
     } else {
-      final user = FirebaseAuth.instance.currentUser;
-      if (user != null) {
-        Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (_) => const HomePage()),
-              (route) => false,
-        );
-      } else {
-        Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (_) => const LoginPage()),
-              (route) => false,
-        );
-      }
+      // Небольшая задержка, чтобы анимация кнопки успела проиграться
+      await Future.delayed(const Duration(milliseconds: 150));
+
+      if (!mounted) return;
+
+      // При нажатии "Начать" теперь открываем именно страницу регистрации
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const RegisterPage()),
+      );
     }
   }
 

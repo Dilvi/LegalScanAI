@@ -22,7 +22,7 @@ class _LegalNewsPageState extends State<LegalNewsPage> {
   bool showFavorites = false;
   String? userEmail;
 
-  final String baseUrl = 'http://192.168.1.82:8082';
+  final String baseUrl = 'http://95.165.74.131:8082';
 
   @override
   void initState() {

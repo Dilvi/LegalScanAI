@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class AuthService {
-  final String baseUrl = "http://192.168.1.82:8080"; // 🧠 твой локальный сервер
+  final String baseUrl = "http://95.165.74.131:8080"; // 🧠 твой локальный сервер
 
   /// 📌 Регистрация
   Future<bool> register(String email, String password, String phone) async {
