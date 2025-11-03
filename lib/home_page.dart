@@ -259,7 +259,7 @@ class _HomePageState extends State<HomePage> {
       subtitle = "Свежие юридические события и прецеденты";
     } else if (_currentPage == 2) {
       title = "Правовая база";
-      subtitle = "Ответы на популярные юридические вопросы";
+      subtitle = "Разделы с разъяснениями по жизненным ситуациям";
     } else {
       title = "Добро пожаловать";
       subtitle = "Последние проверки/результат анализа";

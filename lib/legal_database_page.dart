@@ -1,7 +1,7 @@
-import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'dart:io';
+import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 
 class LegalDatabasePage extends StatefulWidget {
@@ -12,54 +12,90 @@ class LegalDatabasePage extends StatefulWidget {
 }
 
 class _LegalDatabasePageState extends State<LegalDatabasePage> {
-  List<Map<String, dynamic>> sections = [];
+  final String baseUrl = "http://95.165.74.131:8081"; // твой статический IP
+  List<dynamic> sections = [];
   bool isLoading = true;
-  bool hasError = false;
-  File? _avatarImage;
+  bool isRefreshing = false;
 
   @override
   void initState() {
     super.initState();
-    _fetchSections();
-    _loadAvatarImage();
+    _loadCachedData();
+    _fetchUpdates(); // проверка обновлений при открытии
   }
 
-  Future<void> _loadAvatarImage() async {
-    final directory = await getApplicationDocumentsDirectory();
-    final path = '${directory.path}/avatar.png';
-    final avatarFile = File(path);
-    if (await avatarFile.exists()) {
-      setState(() {
-        _avatarImage = avatarFile;
-      });
+  Future<File> _getCacheFile() async {
+    final dir = await getApplicationDocumentsDirectory();
+    return File('${dir.path}/legal_base.json');
+  }
+
+  Future<void> _loadCachedData() async {
+    try {
+      final file = await _getCacheFile();
+      if (await file.exists()) {
+        final cached = jsonDecode(await file.readAsString());
+        setState(() {
+          sections = cached;
+          isLoading = false;
+        });
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _fetchUpdates({bool showSnackbar = false}) async {
+    try {
+      final res = await http.get(Uri.parse('$baseUrl/legal-base'));
+      if (res.statusCode == 200) {
+        final data = jsonDecode(utf8.decode(res.bodyBytes));
+        setState(() {
+          sections = data;
+          isLoading = false;
+        });
+        final file = await _getCacheFile();
+        await file.writeAsString(jsonEncode(data), flush: true);
+        await _cacheImages(data);
+
+        if (showSnackbar && mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text("✅ База обновлена"),
+              backgroundColor: Color(0xFF800000),
+              duration: Duration(seconds: 2),
+            ),
+          );
+        }
+      }
+    } catch (_) {
+      if (showSnackbar && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("⚠️ Не удалось обновить базу"),
+            backgroundColor: Colors.grey,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
     }
   }
 
-  Future<void> _fetchSections() async {
-    try {
-      final response = await http.get(
-        Uri.parse("http://192.168.1.82:8081/legal-sections"), // ✅ локальный IP
-      );
+  Future<void> _cacheImages(List<dynamic> data) async {
+    final dir = await getApplicationDocumentsDirectory();
+    for (final section in data) {
+      for (final sub in section['subsections']) {
+        final url = '$baseUrl${sub['image']}';
+        final fileName = sub['image'].split('/').last;
+        final file = File('${dir.path}/$fileName');
 
-      if (response.statusCode == 200) {
-        final List<dynamic> data = jsonDecode(utf8.decode(response.bodyBytes));
-        setState(() {
-          sections = data.cast<Map<String, dynamic>>();
-          isLoading = false;
-          hasError = false;
-        });
-      } else {
-        setState(() {
-          isLoading = false;
-          hasError = true;
-        });
+        // если файла нет — скачиваем
+        if (!await file.exists()) {
+          try {
+            final response = await http.get(Uri.parse(url));
+            if (response.statusCode == 200) {
+              await file.writeAsBytes(response.bodyBytes);
+            }
+          } catch (_) {}
+        }
       }
-    } catch (e) {
-      print("❌ Ошибка при загрузке разделов: $e");
-      setState(() {
-        isLoading = false;
-        hasError = true;
-      });
     }
   }
 
@@ -71,129 +107,79 @@ class _LegalDatabasePageState extends State<LegalDatabasePage> {
       );
     }
 
-    if (hasError) {
-      return RefreshIndicator(
+    return Scaffold(
+      backgroundColor: Colors.white,
+      body: RefreshIndicator(
         color: const Color(0xFF800000),
-        onRefresh: _fetchSections,
-        child: ListView(
+        onRefresh: () async {
+          setState(() => isRefreshing = true);
+          await _fetchUpdates(showSnackbar: true);
+          setState(() => isRefreshing = false);
+        },
+        child: CustomScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
-          children: const [
-            SizedBox(height: 200),
-            Center(
-              child: Text(
-                "Не удалось загрузить разделы.\nПотяните вниз, чтобы обновить",
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 16),
+          slivers: [
+            SliverPadding(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+              sliver: SliverGrid(
+                delegate: SliverChildBuilderDelegate(
+                      (context, index) {
+                    final section = sections[index];
+                    final color = Color(int.parse(
+                        '0xFF${(section['color'] as String).substring(1)}'));
+                    return _buildSectionCard(context, section, color);
+                  },
+                  childCount: sections.length,
+                ),
+                gridDelegate:
+                const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2,
+                  crossAxisSpacing: 14,
+                  mainAxisSpacing: 14,
+                  childAspectRatio: 1,
+                ),
               ),
             ),
+            if (isRefreshing)
+              const SliverToBoxAdapter(
+                child: SizedBox(height: 60),
+              ),
           ],
         ),
-      );
-    }
-
-    return RefreshIndicator(
-      color: const Color(0xFF800000),
-      onRefresh: _fetchSections,
-      child: CustomScrollView(
-        slivers: [
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  GestureDetector(
-                    onTap: () {
-                      // 👉 Можно добавить переход в профиль (если нужно)
-                    },
-                    child: CircleAvatar(
-                      radius: 22.5,
-                      backgroundColor: const Color(0xFF800000),
-                      backgroundImage:
-                      _avatarImage != null ? FileImage(_avatarImage!) : null,
-                      child: _avatarImage == null
-                          ? const Icon(Icons.person, color: Colors.white)
-                          : null,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    "Правовая база",
-                    style: TextStyle(
-                      fontFamily: 'DM Sans',
-                      fontSize: 34,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black,
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                  const Text(
-                    "Ответы на популярные юридические вопросы",
-                    style: TextStyle(
-                      fontFamily: 'DM Sans',
-                      fontSize: 15,
-                      color: Color(0xFF737C97),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                ],
-              ),
-            ),
-          ),
-          SliverPadding(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
-            sliver: SliverGrid(
-              delegate: SliverChildBuilderDelegate(
-                    (context, index) {
-                  final section = sections[index];
-                  return _buildTile(section);
-                },
-                childCount: sections.length,
-              ),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                crossAxisSpacing: 14,
-                mainAxisSpacing: 14,
-                childAspectRatio: 1,
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }
 
-  Widget _buildTile(Map<String, dynamic> section) {
+  Widget _buildSectionCard(
+      BuildContext context, Map<String, dynamic> section, Color color) {
     return Material(
-      color: const Color(0xFFF4E5E5),
-      borderRadius: BorderRadius.circular(16),
+      color: color,
+      borderRadius: BorderRadius.circular(18),
       elevation: 2,
       child: InkWell(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(18),
         splashColor: const Color(0xFF800000).withOpacity(0.1),
-        highlightColor: const Color(0xFF800000).withOpacity(0.05),
         onTap: () {
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (_) => LegalSectionDetailPage(
-                title: section['title'] ?? 'Раздел',
-                id: section['id'],
+              builder: (_) => LegalSubsectionsPage(
+                title: section["title"],
+                subsections: section["subsections"],
               ),
             ),
           );
         },
         child: Center(
           child: Padding(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.all(16),
             child: Text(
-              section['title'] ?? 'Без названия',
+              section["title"],
               textAlign: TextAlign.center,
               style: const TextStyle(
                 fontFamily: 'DM Sans',
-                fontSize: 16,
+                fontSize: 17,
                 fontWeight: FontWeight.w600,
-                color: Colors.black,
               ),
             ),
           ),
@@ -203,11 +189,15 @@ class _LegalDatabasePageState extends State<LegalDatabasePage> {
   }
 }
 
-class LegalSectionDetailPage extends StatelessWidget {
+class LegalSubsectionsPage extends StatelessWidget {
   final String title;
-  final dynamic id;
+  final List<dynamic> subsections;
 
-  const LegalSectionDetailPage({super.key, required this.title, required this.id});
+  const LegalSubsectionsPage({
+    super.key,
+    required this.title,
+    required this.subsections,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -218,12 +208,102 @@ class LegalSectionDetailPage extends StatelessWidget {
         foregroundColor: Colors.black,
         elevation: 0,
       ),
-      body: Center(
-        child: Text(
-          "📜 Контент раздела ID: $id\n(сюда подгружается с бэкенда)",
-          textAlign: TextAlign.center,
-          style: const TextStyle(fontSize: 16),
+      backgroundColor: Colors.white,
+      body: ListView.builder(
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+        itemCount: subsections.length,
+        itemBuilder: (context, index) {
+          final item = subsections[index];
+          return _buildSubCard(context, item);
+        },
+      ),
+    );
+  }
+
+  Widget _buildSubCard(BuildContext context, Map<String, dynamic> item) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF7F7F7),
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 3)],
+      ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => LegalImagePage(
+                title: item["title"],
+                imageName: item["image"].split('/').last,
+              ),
+            ),
+          );
+        },
+        child: Padding(
+          padding:
+          const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+          child: Text(
+            item["title"],
+            style: const TextStyle(
+                fontFamily: 'DM Sans',
+                fontSize: 15,
+                fontWeight: FontWeight.w500),
+          ),
         ),
+      ),
+    );
+  }
+}
+
+class LegalImagePage extends StatelessWidget {
+  final String title;
+  final String imageName;
+
+  const LegalImagePage({
+    super.key,
+    required this.title,
+    required this.imageName,
+  });
+
+  Future<File?> _getImageFile() async {
+    final dir = await getApplicationDocumentsDirectory();
+    final file = File('${dir.path}/$imageName');
+    if (await file.exists()) return file;
+    return null;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis),
+        backgroundColor: Colors.white,
+        foregroundColor: Colors.black,
+        elevation: 0,
+      ),
+      body: FutureBuilder<File?>(
+        future: _getImageFile(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState != ConnectionState.done) {
+            return const Center(
+              child:
+              CircularProgressIndicator(color: Color(0xFF800000)),
+            );
+          }
+          final file = snapshot.data;
+          if (file == null) {
+            return const Center(child: Text("Изображение не найдено"));
+          }
+          return InteractiveViewer(
+            minScale: 1,
+            maxScale: 4,
+            child: SingleChildScrollView(
+              child: Image.file(file, fit: BoxFit.contain),
+            ),
+          );
+        },
       ),
     );
   }
