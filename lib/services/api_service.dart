@@ -6,7 +6,8 @@ import 'package:http_parser/http_parser.dart';
 
 class ApiService {
   // 📡 — поставь свой IP или домен сервера FastAPI
-  static const String _baseUrl = "http://95.165.74.131:8000";
+  static const String _baseUrl = "http://95.165.74.131:8000/api/v1";
+
   static const Map<String, String> _headers = {
     "Content-Type": "application/json; charset=utf-8",
   };
@@ -30,7 +31,7 @@ class ApiService {
           "docType": docType,
         }),
       )
-          .timeout(const Duration(seconds: 30)); // ⏳ таймаут
+          .timeout(const Duration(seconds: 30));
 
       if (response.statusCode == 200) {
         final data = jsonDecode(utf8.decode(response.bodyBytes));
@@ -66,7 +67,6 @@ class ApiService {
       var request = http.MultipartRequest('POST', url);
       request.fields['docType'] = docType;
 
-      // 📌 Определяем MIME-тип
       final mimeType = lookupMimeType(imagePath) ?? 'image/jpeg';
       final mimeParts = mimeType.split('/');
 
@@ -99,7 +99,7 @@ class ApiService {
   }
 
   /// =======================
-  /// 💬 Чат (LegalMind)
+  /// 💬 Чат
   /// =======================
   static Future<String> sendMessage(String text) async {
     final url = Uri.parse("$_baseUrl/chat");
