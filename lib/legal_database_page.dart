@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
+import 'package:webview_flutter/webview_flutter.dart';
 
 class LegalDatabasePage extends StatefulWidget {
   const LegalDatabasePage({super.key});
@@ -12,7 +13,8 @@ class LegalDatabasePage extends StatefulWidget {
 }
 
 class _LegalDatabasePageState extends State<LegalDatabasePage> {
-  final String baseUrl = "http://95.165.74.131:8081"; // твой статический IP
+  final String baseUrl = "http://95.165.74.131:8081";
+
   List<dynamic> sections = [];
   bool isLoading = true;
   bool isRefreshing = false;
@@ -21,8 +23,12 @@ class _LegalDatabasePageState extends State<LegalDatabasePage> {
   void initState() {
     super.initState();
     _loadCachedData();
-    _fetchUpdates(); // проверка обновлений при открытии
+    _fetchUpdates();
   }
+
+  // ======================================================
+  // CACHE
+  // ======================================================
 
   Future<File> _getCacheFile() async {
     final dir = await getApplicationDocumentsDirectory();
@@ -47,20 +53,22 @@ class _LegalDatabasePageState extends State<LegalDatabasePage> {
       final res = await http.get(Uri.parse('$baseUrl/legal-base'));
       if (res.statusCode == 200) {
         final data = jsonDecode(utf8.decode(res.bodyBytes));
+
+        final file = await _getCacheFile();
+        await file.writeAsString(jsonEncode(data), flush: true);
+
         setState(() {
           sections = data;
           isLoading = false;
         });
-        final file = await _getCacheFile();
-        await file.writeAsString(jsonEncode(data), flush: true);
-        await _cacheImages(data);
+
+        await _cacheHtmlFiles(data);
 
         if (showSnackbar && mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text("✅ База обновлена"),
+              content: Text("✅ Правовая база обновлена"),
               backgroundColor: Color(0xFF800000),
-              duration: Duration(seconds: 2),
             ),
           );
         }
@@ -69,35 +77,65 @@ class _LegalDatabasePageState extends State<LegalDatabasePage> {
       if (showSnackbar && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text("⚠️ Не удалось обновить базу"),
+            content: Text("⚠ Не удалось обновить"),
             backgroundColor: Colors.grey,
-            duration: Duration(seconds: 2),
           ),
         );
       }
     }
   }
 
-  Future<void> _cacheImages(List<dynamic> data) async {
-    final dir = await getApplicationDocumentsDirectory();
-    for (final section in data) {
-      for (final sub in section['subsections']) {
-        final url = '$baseUrl${sub['image']}';
-        final fileName = sub['image'].split('/').last;
-        final file = File('${dir.path}/$fileName');
+  // ======================================================
+  // DOWNLOAD HTML + CSS CORRECTLY
+  // ======================================================
 
-        // если файла нет — скачиваем
-        if (!await file.exists()) {
-          try {
-            final response = await http.get(Uri.parse(url));
-            if (response.statusCode == 200) {
-              await file.writeAsBytes(response.bodyBytes);
-            }
-          } catch (_) {}
+  Future<void> _cacheHtmlFiles(List<dynamic> nodes) async {
+    final dir = await getApplicationDocumentsDirectory();
+
+    // Download CSS
+    final cssFile = File("${dir.path}/style.css");
+    try {
+      final cssRes = await http.get(Uri.parse("$baseUrl/html/style.css"));
+      if (cssRes.statusCode == 200) {
+        await cssFile.writeAsBytes(cssRes.bodyBytes, flush: true);
+      }
+    } catch (_) {}
+
+    // Recursive download
+    Future<void> downloadNode(dynamic node) async {
+      if (node is! Map<String, dynamic>) return;
+
+      if (node["html"] != null) {
+        final remotePath = node["html"]; // "/html/.../moscow_fine.html"
+        final localRelativePath = remotePath.replaceFirst("/html/", "");
+
+        final file = File("${dir.path}/$localRelativePath");
+
+        try {
+          await file.parent.create(recursive: true);
+
+          final res = await http.get(Uri.parse("$baseUrl$remotePath"));
+          if (res.statusCode == 200) {
+            await file.writeAsBytes(res.bodyBytes, flush: true);
+          }
+        } catch (_) {}
+      }
+
+      if (node["children"] != null) {
+        for (var child in node["children"]) {
+          await downloadNode(child);
         }
       }
     }
+
+    for (final n in nodes) {
+      await downloadNode(n);
+    }
   }
+
+  // ======================================================
+  // UI
+  // ======================================================
 
   @override
   Widget build(BuildContext context) {
@@ -124,49 +162,38 @@ class _LegalDatabasePageState extends State<LegalDatabasePage> {
               sliver: SliverGrid(
                 delegate: SliverChildBuilderDelegate(
                       (context, index) {
-                    final section = sections[index];
-                    final color = Color(int.parse(
-                        '0xFF${(section['color'] as String).substring(1)}'));
-                    return _buildSectionCard(context, section, color);
+                    final node = sections[index];
+                    final color = Color(
+                      int.parse('0xFF${(node['color'] as String).substring(1)}'),
+                    );
+                    return _buildSectionCard(node, color);
                   },
                   childCount: sections.length,
                 ),
-                gridDelegate:
-                const SliverGridDelegateWithFixedCrossAxisCount(
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                   crossAxisCount: 2,
                   crossAxisSpacing: 14,
                   mainAxisSpacing: 14,
-                  childAspectRatio: 1,
                 ),
               ),
             ),
-            if (isRefreshing)
-              const SliverToBoxAdapter(
-                child: SizedBox(height: 60),
-              ),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildSectionCard(
-      BuildContext context, Map<String, dynamic> section, Color color) {
+  Widget _buildSectionCard(Map<String, dynamic> node, Color color) {
     return Material(
       color: color,
       borderRadius: BorderRadius.circular(18),
-      elevation: 2,
       child: InkWell(
         borderRadius: BorderRadius.circular(18),
-        splashColor: const Color(0xFF800000).withOpacity(0.1),
         onTap: () {
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (_) => LegalSubsectionsPage(
-                title: section["title"],
-                subsections: section["subsections"],
-              ),
+              builder: (_) => LegalNodePage(node: node),
             ),
           );
         },
@@ -174,7 +201,7 @@ class _LegalDatabasePageState extends State<LegalDatabasePage> {
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Text(
-              section["title"],
+              node["title"],
               textAlign: TextAlign.center,
               style: const TextStyle(
                 fontFamily: 'DM Sans',
@@ -189,122 +216,180 @@ class _LegalDatabasePageState extends State<LegalDatabasePage> {
   }
 }
 
-class LegalSubsectionsPage extends StatelessWidget {
-  final String title;
-  final List<dynamic> subsections;
+// ======================================================
+// UNIVERSAL NODE PAGE
+// ======================================================
 
-  const LegalSubsectionsPage({
-    super.key,
-    required this.title,
-    required this.subsections,
-  });
+class LegalNodePage extends StatefulWidget {
+  final Map<String, dynamic> node;
+
+  const LegalNodePage({super.key, required this.node});
+
+  @override
+  State<LegalNodePage> createState() => _LegalNodePageState();
+}
+
+class _LegalNodePageState extends State<LegalNodePage> {
+  String? selectedCity;
+
+  @override
+  void initState() {
+    super.initState();
+
+    if (widget.node["cities"] != null) {
+      selectedCity = widget.node["cities"][0];
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    final node = widget.node;
+
+    // HTML PAGE
+    if (node["html"] != null) {
+      return LegalHtmlPage(
+        title: node["title"],
+        htmlPath: node["html"], // передаем полный путь!
+      );
+    }
+
+    final children = node["children"] ?? [];
+    final hasCities = node["cities"] != null;
+
     return Scaffold(
       appBar: AppBar(
-        title: Text(title),
-        backgroundColor: Colors.white,
+        title: Text(node["title"]),
         foregroundColor: Colors.black,
+        backgroundColor: Colors.white,
         elevation: 0,
+        actions: [
+          if (hasCities)
+            Padding(
+              padding: const EdgeInsets.only(right: 12),
+              child: DropdownButton<String>(
+                value: selectedCity,
+                underline: const SizedBox(),
+                items: (node["cities"] as List<dynamic>)
+                    .map<DropdownMenuItem<String>>(
+                      (c) => DropdownMenuItem<String>(
+                    value: c,
+                    child: Text(c),
+                  ),
+                )
+                    .toList(),
+                onChanged: (value) {
+                  setState(() => selectedCity = value);
+                },
+              ),
+            ),
+        ],
       ),
-      backgroundColor: Colors.white,
-      body: ListView.builder(
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
-        itemCount: subsections.length,
-        itemBuilder: (context, index) {
-          final item = subsections[index];
-          return _buildSubCard(context, item);
-        },
-      ),
-    );
-  }
 
-  Widget _buildSubCard(BuildContext context, Map<String, dynamic> item) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 14),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF7F7F7),
-        borderRadius: BorderRadius.circular(14),
-        boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 3)],
-      ),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(14),
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => LegalImagePage(
-                title: item["title"],
-                imageName: item["image"].split('/').last,
+      body: ListView.builder(
+        padding: const EdgeInsets.all(16),
+        itemCount: children.length,
+        itemBuilder: (context, index) {
+          final child = children[index];
+
+          if (child["city"] != null &&
+              selectedCity != null &&
+              child["city"] != selectedCity) {
+            return const SizedBox.shrink();
+          }
+
+          return Container(
+            margin: const EdgeInsets.only(bottom: 14),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF7F7F7),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(14),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => LegalNodePage(node: child),
+                  ),
+                );
+              },
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+                child: Text(
+                  child["title"] ?? "",
+                  style: const TextStyle(
+                    fontFamily: 'DM Sans',
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
               ),
             ),
           );
         },
-        child: Padding(
-          padding:
-          const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
-          child: Text(
-            item["title"],
-            style: const TextStyle(
-                fontFamily: 'DM Sans',
-                fontSize: 15,
-                fontWeight: FontWeight.w500),
-          ),
-        ),
       ),
     );
   }
 }
 
-class LegalImagePage extends StatelessWidget {
-  final String title;
-  final String imageName;
+// ======================================================
+// HTML PAGE
+// ======================================================
 
-  const LegalImagePage({
+class LegalHtmlPage extends StatelessWidget {
+  final String title;
+  final String htmlPath; // now we pass the full backend path
+
+  const LegalHtmlPage({
     super.key,
     required this.title,
-    required this.imageName,
+    required this.htmlPath,
   });
 
-  Future<File?> _getImageFile() async {
+  Future<String> _loadHtml() async {
     final dir = await getApplicationDocumentsDirectory();
-    final file = File('${dir.path}/$imageName');
-    if (await file.exists()) return file;
-    return null;
+
+    final relative = htmlPath.replaceFirst("/html/", "");
+    final fullPath = "${dir.path}/$relative";
+
+    String html = await File(fullPath).readAsString();
+
+    final cssPath = "${dir.path}/style.css";
+    if (await File(cssPath).exists()) {
+      String css = await File(cssPath).readAsString();
+      html = html.replaceFirst("<head>", "<head><style>$css</style>");
+    }
+
+    return html;
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
-        elevation: 0,
-      ),
-      body: FutureBuilder<File?>(
-        future: _getImageFile(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState != ConnectionState.done) {
-            return const Center(
-              child:
-              CircularProgressIndicator(color: Color(0xFF800000)),
-            );
-          }
-          final file = snapshot.data;
-          if (file == null) {
-            return const Center(child: Text("Изображение не найдено"));
-          }
-          return InteractiveViewer(
-            minScale: 1,
-            maxScale: 4,
-            child: SingleChildScrollView(
-              child: Image.file(file, fit: BoxFit.contain),
+    return FutureBuilder<String>(
+      future: _loadHtml(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          return const Scaffold(
+            body: Center(
+              child: CircularProgressIndicator(color: Color(0xFF800000)),
             ),
           );
-        },
-      ),
+        }
+
+        final controller = WebViewController()
+          ..setJavaScriptMode(JavaScriptMode.unrestricted)
+          ..loadHtmlString(snapshot.data!);
+
+        return Scaffold(
+          appBar: AppBar(
+            title: Text(title),
+            backgroundColor: Colors.white,
+            foregroundColor: Colors.black,
+            elevation: 0,
+          ),
+          body: WebViewWidget(controller: controller),
+        );
+      },
     );
   }
 }

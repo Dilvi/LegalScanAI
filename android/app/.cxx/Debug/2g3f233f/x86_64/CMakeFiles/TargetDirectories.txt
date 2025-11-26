@@ -1,2 +1,0 @@
-C:/LegalScanAI_dev/android/app/.cxx/Debug/2g3f233f/x86_64/CMakeFiles/edit_cache.dir
-C:/LegalScanAI_dev/android/app/.cxx/Debug/2g3f233f/x86_64/CMakeFiles/rebuild_cache.dir
