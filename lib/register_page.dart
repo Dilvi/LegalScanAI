@@ -12,20 +12,25 @@ class RegisterPage extends StatefulWidget {
 
 class _RegisterPageState extends State<RegisterPage> {
   final TextEditingController _emailController = TextEditingController();
-  final TextEditingController _phoneController = TextEditingController();
+  final TextEditingController _nameController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
 
   bool _isEmailFocused = false;
-  bool _isPhoneFocused = false;
+  bool _isNameFocused = false;
   bool _isPasswordFocused = false;
   bool _isLoading = false;
 
   void _register() async {
     final email = _emailController.text.trim();
+    final fullName = _nameController.text.trim();
     final password = _passwordController.text.trim();
-    final phone = _phoneController.text.trim();
 
-    final success = await AuthService().register(email, password, phone);
+    setState(() => _isLoading = true);
+
+    final success = await AuthService().register(email, password, fullName);
+
+    setState(() => _isLoading = false);
+
     if (success) {
       Navigator.pushReplacement(
         context,
@@ -35,7 +40,6 @@ class _RegisterPageState extends State<RegisterPage> {
       _showError("Не удалось создать аккаунт. Проверьте данные.");
     }
   }
-
 
   void _showError(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
@@ -73,7 +77,7 @@ class _RegisterPageState extends State<RegisterPage> {
                 ),
                 const SizedBox(height: 12),
                 const Text(
-                  "Введите правильные данные, чтобы\nправильно настроить свою учетную\nзапись.",
+                  "Введите данные, чтобы настроить\nсвою учетную запись.",
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontFamily: 'DM Sans',
@@ -82,6 +86,8 @@ class _RegisterPageState extends State<RegisterPage> {
                   ),
                 ),
                 const SizedBox(height: 32),
+
+                // ---- EMAIL ----
                 _buildTextField(
                   label: 'Email адрес',
                   controller: _emailController,
@@ -91,15 +97,19 @@ class _RegisterPageState extends State<RegisterPage> {
                   },
                 ),
                 const SizedBox(height: 32),
+
+                // ---- NAME ----
                 _buildTextField(
-                  label: 'Номер телефона',
-                  controller: _phoneController,
-                  isFocused: _isPhoneFocused,
+                  label: 'Ваше имя',
+                  controller: _nameController,
+                  isFocused: _isNameFocused,
                   onFocusChange: (hasFocus) {
-                    setState(() => _isPhoneFocused = hasFocus);
+                    setState(() => _isNameFocused = hasFocus);
                   },
                 ),
                 const SizedBox(height: 32),
+
+                // ---- PASSWORD ----
                 _buildTextField(
                   label: 'Пароль',
                   controller: _passwordController,
@@ -109,6 +119,7 @@ class _RegisterPageState extends State<RegisterPage> {
                     setState(() => _isPasswordFocused = hasFocus);
                   },
                 ),
+
                 const SizedBox(height: 40),
                 SizedBox(
                   width: screenWidth * 0.9,
@@ -136,11 +147,14 @@ class _RegisterPageState extends State<RegisterPage> {
                   ),
                 ),
                 const SizedBox(height: 16),
+
                 GestureDetector(
                   onTap: () {
                     Navigator.pushReplacement(
                       context,
-                      MaterialPageRoute(builder: (context) => const LoginPage()),
+                      MaterialPageRoute(
+                        builder: (context) => const LoginPage(),
+                      ),
                     );
                   },
                   child: RichText(
@@ -162,6 +176,7 @@ class _RegisterPageState extends State<RegisterPage> {
                     ),
                   ),
                 ),
+
                 const SizedBox(height: 24),
               ],
             ),

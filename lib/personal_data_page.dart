@@ -13,19 +13,16 @@ class PersonalDataPage extends StatefulWidget {
 
 class _PersonalDataPageState extends State<PersonalDataPage> {
   final _formKey = GlobalKey<FormState>();
-  final _nameController = TextEditingController();
-  final _surnameController = TextEditingController();
+
+  final _fullNameController = TextEditingController();
   final _emailController = TextEditingController();
-  final _phoneController = TextEditingController();
 
   bool _isSaveButtonEnabled = false;
   bool _isLoading = true;
   bool _hasError = false;
 
-  String _initialName = '';
-  String _initialSurname = '';
+  String _initialFullName = '';
   String _initialEmail = '';
-  String _initialPhone = '';
 
   @override
   void initState() {
@@ -36,10 +33,8 @@ class _PersonalDataPageState extends State<PersonalDataPage> {
 
   void _setupListeners() {
     for (var controller in [
-      _nameController,
-      _surnameController,
+      _fullNameController,
       _emailController,
-      _phoneController
     ]) {
       controller.addListener(_checkIfChanged);
     }
@@ -48,10 +43,8 @@ class _PersonalDataPageState extends State<PersonalDataPage> {
   void _checkIfChanged() {
     setState(() {
       _isSaveButtonEnabled =
-          _nameController.text.trim() != _initialName ||
-              _surnameController.text.trim() != _initialSurname ||
-              _emailController.text.trim() != _initialEmail ||
-              _phoneController.text.trim() != _initialPhone;
+          _fullNameController.text.trim() != _initialFullName ||
+              _emailController.text.trim() != _initialEmail;
     });
   }
 
@@ -66,15 +59,11 @@ class _PersonalDataPageState extends State<PersonalDataPage> {
     }
 
     setState(() {
-      _initialName = data['name'] ?? '';
-      _initialSurname = data['surname'] ?? '';
+      _initialFullName = data['fullName'] ?? '';
       _initialEmail = data['email'] ?? '';
-      _initialPhone = data['phone'] ?? '';
 
-      _nameController.text = _initialName;
-      _surnameController.text = _initialSurname;
+      _fullNameController.text = _initialFullName;
       _emailController.text = _initialEmail;
-      _phoneController.text = _initialPhone;
 
       _isLoading = false;
       _hasError = false;
@@ -84,10 +73,8 @@ class _PersonalDataPageState extends State<PersonalDataPage> {
 
   Future<void> _saveUserData() async {
     final success = await ProfileService.updateProfile(
-      name: _nameController.text.trim(),
-      surname: _surnameController.text.trim(),
+      fullName: _fullNameController.text.trim(),
       email: _emailController.text.trim(),
-      phone: _phoneController.text.trim(),
     );
 
     if (success) {
@@ -95,10 +82,8 @@ class _PersonalDataPageState extends State<PersonalDataPage> {
         const SnackBar(content: Text('Данные успешно сохранены')),
       );
       setState(() {
-        _initialName = _nameController.text.trim();
-        _initialSurname = _surnameController.text.trim();
+        _initialFullName = _fullNameController.text.trim();
         _initialEmail = _emailController.text.trim();
-        _initialPhone = _phoneController.text.trim();
         _isSaveButtonEnabled = false;
       });
     } else {
@@ -140,8 +125,9 @@ class _PersonalDataPageState extends State<PersonalDataPage> {
               borderSide: const BorderSide(color: Color(0xFF800000), width: 2),
             ),
           ),
-          validator: (value) =>
-          (value == null || value.trim().isEmpty) ? 'Поле не может быть пустым' : null,
+          validator: (value) => (value == null || value.trim().isEmpty)
+              ? 'Поле не может быть пустым'
+              : null,
         ),
         const SizedBox(height: 20),
       ],
@@ -160,7 +146,8 @@ class _PersonalDataPageState extends State<PersonalDataPage> {
         elevation: 0,
         leading: IconButton(
           onPressed: () => Navigator.pop(context),
-          icon: SvgPicture.asset('assets/back_button.svg', width: 24, height: 24),
+          icon: SvgPicture.asset('assets/back_button.svg',
+              width: 24, height: 24),
         ),
         centerTitle: true,
         title: const Text(
@@ -183,21 +170,16 @@ class _PersonalDataPageState extends State<PersonalDataPage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _buildTextField(
-                      label: 'Имя', hint: 'Введите ваше имя', controller: _nameController),
+                    label: 'Имя и фамилия',
+                    hint: 'Введите полное имя',
+                    controller: _fullNameController,
+                  ),
                   _buildTextField(
-                      label: 'Фамилия',
-                      hint: 'Введите вашу фамилию',
-                      controller: _surnameController),
-                  _buildTextField(
-                      label: 'Email',
-                      hint: 'Введите email',
-                      controller: _emailController,
-                      keyboardType: TextInputType.emailAddress),
-                  _buildTextField(
-                      label: 'Телефон',
-                      hint: '+7 (___) ___-__-__',
-                      controller: _phoneController,
-                      keyboardType: TextInputType.phone),
+                    label: 'Email',
+                    hint: 'Введите email',
+                    controller: _emailController,
+                    keyboardType: TextInputType.emailAddress,
+                  ),
                   const SizedBox(height: 30),
                   Center(
                     child: SizedBox(
