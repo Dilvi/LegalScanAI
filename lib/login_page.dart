@@ -22,7 +22,12 @@ class _LoginPageState extends State<LoginPage> {
     final email = _emailController.text.trim();
     final password = _passwordController.text.trim();
 
+    setState(() => _isLoading = true);
+
     final success = await AuthService().login(email, password);
+
+    setState(() => _isLoading = false);
+
     if (success) {
       Navigator.pushReplacement(
         context,
@@ -32,7 +37,6 @@ class _LoginPageState extends State<LoginPage> {
       _showError("Ошибка входа. Проверьте данные.");
     }
   }
-
 
   void _showError(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
@@ -58,6 +62,7 @@ class _LoginPageState extends State<LoginPage> {
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 const SizedBox(height: 70),
+
                 const Text(
                   "ВОЙДИТЕ В АККАУНТ",
                   textAlign: TextAlign.center,
@@ -68,9 +73,11 @@ class _LoginPageState extends State<LoginPage> {
                     fontWeight: FontWeight.w600,
                   ),
                 ),
+
                 const SizedBox(height: 12),
+
                 const Text(
-                  "Введите правильные данные, чтобы\nправильно настроить свою учетную\nзапись.",
+                  "Введите email и пароль, чтобы получить доступ.",
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontFamily: 'DM Sans',
@@ -78,7 +85,10 @@ class _LoginPageState extends State<LoginPage> {
                     color: Color(0xFF737C97),
                   ),
                 ),
+
                 const SizedBox(height: 32),
+
+                // ---- EMAIL ----
                 _buildTextField(
                   label: 'Email адрес',
                   controller: _emailController,
@@ -87,7 +97,10 @@ class _LoginPageState extends State<LoginPage> {
                     setState(() => _isEmailFocused = hasFocus);
                   },
                 ),
+
                 const SizedBox(height: 32),
+
+                // ---- PASSWORD ----
                 _buildTextField(
                   label: 'Пароль',
                   controller: _passwordController,
@@ -97,7 +110,9 @@ class _LoginPageState extends State<LoginPage> {
                     setState(() => _isPasswordFocused = hasFocus);
                   },
                 ),
+
                 const SizedBox(height: 40),
+
                 SizedBox(
                   width: screenWidth * 0.9,
                   height: 55,
@@ -123,12 +138,16 @@ class _LoginPageState extends State<LoginPage> {
                     ),
                   ),
                 ),
+
                 const SizedBox(height: 16),
+
                 GestureDetector(
                   onTap: () {
                     Navigator.pushReplacement(
                       context,
-                      MaterialPageRoute(builder: (context) => const RegisterPage()),
+                      MaterialPageRoute(
+                        builder: (context) => const RegisterPage(),
+                      ),
                     );
                   },
                   child: RichText(
@@ -150,6 +169,7 @@ class _LoginPageState extends State<LoginPage> {
                     ),
                   ),
                 ),
+
                 const SizedBox(height: 24),
               ],
             ),
@@ -176,7 +196,6 @@ class _LoginPageState extends State<LoginPage> {
           hintText: !isFocused ? label : null,
           labelStyle: TextStyle(
             fontSize: isFocused ? 16 : 14,
-            fontWeight: FontWeight.normal,
             color: isFocused ? const Color(0xFF800000) : const Color(0xFF737C97),
           ),
           hintStyle: const TextStyle(

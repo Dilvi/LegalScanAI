@@ -5,6 +5,7 @@ import 'dart:io';
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:another_flushbar/flushbar.dart';
+import 'package:http/http.dart' as http;
 
 import 'profile_page.dart';
 import 'chat_page.dart';
@@ -14,7 +15,6 @@ import 'upload_file_page.dart';
 import 'saved_check.dart';
 import 'file_type_choice_page.dart';
 
-// 👇 Страницы
 import 'legal_news_page.dart';
 import 'legal_database_page.dart';
 
@@ -25,32 +25,138 @@ class HomePage extends StatefulWidget {
   State<HomePage> createState() => _HomePageState();
 }
 
-class _HomePageState extends State<HomePage> {
+class _HomePageState extends State<HomePage> with WidgetsBindingObserver {   // ⭐ FIX AVATAR REFRESH
   List<Map<String, dynamic>> recentChecks = [];
   Set<int> selectedIndexes = {};
   bool isSelectionMode = false;
+
   File? _avatarImage;
+  int _avatarVersion = 0; // ⭐ FIX AVATAR REFRESH — чтобы гарантировать обновление UI
 
   final PageController _pageController = PageController(initialPage: 1);
   int _currentPage = 1;
 
-  // Кэшируем страницы
   late final LegalNewsPage _newsPage = const LegalNewsPage();
   late final LegalDatabasePage _databasePage = const LegalDatabasePage();
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this); // ⭐ слушаем возвраты в приложение
+
     _loadRecentChecks();
     _loadAvatarImage();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  // ⭐ FIX AVATAR REFRESH — вызывается при возврате в приложение
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _loadAvatarImage();
+    }
+  }
+
+  // ⭐ FIX AVATAR REFRESH — вызывается при повторном построении страницы
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _loadAvatarImage();
+  }
+
+  // ⭐ FIX AVATAR REFRESH — когда аватар меняется на ProfilePage → обновляем после Navigator.pop()
+  Future<void> _openProfilePage() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const ProfilePage()),
+    );
+
+    _loadAvatarImage(); // ← гарантированно обновляем после возврата
   }
 
   Future<void> _loadAvatarImage() async {
     final directory = await getApplicationDocumentsDirectory();
     final path = '${directory.path}/avatar.png';
     final avatarFile = File(path);
+
     if (await avatarFile.exists()) {
-      setState(() => _avatarImage = avatarFile);
+      setState(() {
+        _avatarImage = avatarFile;
+        _avatarVersion++; // 🔥 форс-обновление картинки
+      });
+    } else {
+      setState(() {
+        _avatarImage = null;
+        _avatarVersion++;
+      });
+    }
+  }
+
+  Future<bool> _hasLegalBaseAccess() async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('auth_token');
+    if (token == null) return false;
+
+    final response = await http.get(
+      Uri.parse("http://95.165.74.131:8080/profile/get"),
+      headers: {"Authorization": "Bearer $token"},
+    );
+
+    if (response.statusCode != 200) return false;
+
+    final data = jsonDecode(response.body);
+    final subscription = data["subscription"];
+
+    if (subscription == null) return false;
+
+    return subscription["hasLegalBaseAccess"] == true;
+  }
+
+  Future<bool> _hasDocumentAccess() async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('auth_token');
+
+    if (token == null) {
+      _showCustomNotification("Необходимо войти в аккаунт", background: Colors.red);
+      return false;
+    }
+
+    try {
+      final response = await http.get(
+        Uri.parse("http://95.165.74.131:8080/profile/get"),
+        headers: {"Authorization": "Bearer $token"},
+      );
+
+      if (response.statusCode != 200) {
+        _showCustomNotification("Ошибка проверки подписки", background: Colors.red);
+        return false;
+      }
+
+      final Map<String, dynamic> data = jsonDecode(response.body);
+      final subscription = data["subscription"];
+
+      if (subscription == null || subscription["plan"] == null) {
+        _showCustomNotification("Нет активной подписки", background: Colors.red);
+        return false;
+      }
+
+      final docLeft = subscription["docLeft"];
+      final isUnlimited = docLeft == null;
+
+      if (isUnlimited) return true;
+      if (docLeft is int && docLeft > 0) return true;
+
+      _showCustomNotification("Лимит анализов документов исчерпан", background: Colors.red);
+      return false;
+
+    } catch (_) {
+      _showCustomNotification("Сеть недоступна", background: Colors.red);
+      return false;
     }
   }
 
@@ -58,16 +164,13 @@ class _HomePageState extends State<HomePage> {
     final prefs = await SharedPreferences.getInstance();
     final list = prefs.getStringList('recentChecks') ?? [];
     setState(() {
-      recentChecks = list.map((jsonStr) {
-        final decoded = jsonDecode(jsonStr) as Map<String, dynamic>;
-        return decoded;
-      }).toList();
+      recentChecks = list.map((s) => jsonDecode(s) as Map<String, dynamic>).toList();
     });
   }
 
   Future<void> _saveRecentChecks() async {
     final prefs = await SharedPreferences.getInstance();
-    final encoded = recentChecks.map((e) => jsonEncode(e)).toList();
+    final encoded = recentChecks.map(jsonEncode).toList();
     await prefs.setStringList('recentChecks', encoded);
   }
 
@@ -80,6 +183,7 @@ class _HomePageState extends State<HomePage> {
       context,
       MaterialPageRoute(builder: (_) => const FileTypeChoicePage()),
     );
+
     if (selectedType != null && selectedType is String) {
       Navigator.push(
         context,
@@ -115,6 +219,7 @@ class _HomePageState extends State<HomePage> {
       selectedIndexes.clear();
       isSelectionMode = false;
     });
+
     _saveRecentChecks();
     _showCustomNotification("Выбранные проверки удалены");
   }
@@ -158,18 +263,46 @@ class _HomePageState extends State<HomePage> {
             Expanded(
               child: Stack(
                 children: [
-                  // Основной контент
                   PageView(
                     controller: _pageController,
-                    onPageChanged: (index) => setState(() => _currentPage = index),
+                    onPageChanged: (i) => setState(() => _currentPage = i),
                     children: [
                       _newsPage,
                       _buildRecentChecksPage(),
-                      _databasePage,
+                      FutureBuilder(
+                        future: _hasLegalBaseAccess(),
+                        builder: (context, snap) {
+                          if (!snap.hasData) {
+                            return const Center(
+                              child: CircularProgressIndicator(color: Color(0xFF800000)),
+                            );
+                          }
+
+                          if (snap.data == true) return _databasePage;
+
+                          return Center(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: const [
+                                Icon(Icons.lock_outline, size: 50, color: Colors.red),
+                                SizedBox(height: 16),
+                                Text(
+                                  "Нет доступа к правовой базе",
+                                  style: TextStyle(
+                                    fontFamily: 'DM Sans',
+                                    fontSize: 17,
+                                    color: Colors.red,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
                     ],
                   ),
 
-                  // 👈 Кнопка "Новости" — показываем только на средней вкладке
                   if (_currentPage == 1)
                     Positioned(
                       left: 10,
@@ -182,7 +315,6 @@ class _HomePageState extends State<HomePage> {
                           );
                         },
                         child: Column(
-                          mainAxisSize: MainAxisSize.min,
                           children: const [
                             Icon(Icons.arrow_back_ios_new,
                                 color: Color(0xFF800000), size: 18),
@@ -203,20 +335,25 @@ class _HomePageState extends State<HomePage> {
                       ),
                     ),
 
-                  // 👉 Кнопка "База" — тоже только на средней вкладке
                   if (_currentPage == 1)
                     Positioned(
                       right: 10,
                       bottom: 25,
                       child: GestureDetector(
-                        onTap: () {
-                          _pageController.nextPage(
-                            duration: const Duration(milliseconds: 400),
-                            curve: Curves.easeOutCubic,
-                          );
+                        onTap: () async {
+                          if (await _hasLegalBaseAccess()) {
+                            _pageController.nextPage(
+                              duration: const Duration(milliseconds: 400),
+                              curve: Curves.easeOutCubic,
+                            );
+                          } else {
+                            _showCustomNotification(
+                              "Нет доступа к правовой базе",
+                              background: Colors.red,
+                            );
+                          }
                         },
                         child: Column(
-                          mainAxisSize: MainAxisSize.min,
                           children: const [
                             Icon(Icons.arrow_forward_ios,
                                 color: Color(0xFF800000), size: 18),
@@ -239,14 +376,10 @@ class _HomePageState extends State<HomePage> {
                 ],
               ),
             ),
-
           ],
         ),
       ),
-      bottomNavigationBar: SafeArea(
-        top: false,
-        child: _buildBottomPanel(context),
-      ),
+      bottomNavigationBar: SafeArea(top: false, child: _buildBottomPanel(context)),
     );
   }
 
@@ -275,11 +408,9 @@ class _HomePageState extends State<HomePage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 GestureDetector(
-                  onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const ProfilePage()),
-                  ),
+                  onTap: _openProfilePage,        // ⭐ FIX AVATAR REFRESH
                   child: CircleAvatar(
+                    key: ValueKey(_avatarVersion), // ⭐ принудительная перерисовка
                     radius: 22.5,
                     backgroundColor: const Color(0xFF800000),
                     backgroundImage: _avatarImage != null ? FileImage(_avatarImage!) : null,
@@ -322,14 +453,13 @@ class _HomePageState extends State<HomePage> {
       child: ListView.separated(
         padding: const EdgeInsets.only(bottom: 230, left: 20, right: 20),
         itemCount: recentChecks.length,
-        separatorBuilder: (context, index) =>
-        const Divider(height: 1, color: Color(0xFFE0E0E0)),
+        separatorBuilder: (_, __) => const Divider(height: 1, color: Color(0xFFE0E0E0)),
         itemBuilder: (context, index) {
           final item = recentChecks[index];
           final riskValue = item['hasRisk'];
           final isSaved = item.containsKey('filePath');
-          String riskIcon;
 
+          String riskIcon;
           if (riskValue == true) {
             riskIcon = 'assets/Unsuccessfully.svg';
           } else if (riskValue == false) {
@@ -368,16 +498,10 @@ class _HomePageState extends State<HomePage> {
                       ),
                     );
                   } else {
-                    _showCustomNotification(
-                      "Файл не найден. Возможно, он был удалён.",
-                      background: Colors.red,
-                    );
+                    _showCustomNotification("Файл не найден", background: Colors.red);
                   }
                 } else {
-                  _showCustomNotification(
-                    "Проверка не была сохранена",
-                    background: Colors.grey,
-                  );
+                  _showCustomNotification("Проверка не была сохранена");
                 }
               }
             },
@@ -468,23 +592,35 @@ class _HomePageState extends State<HomePage> {
                 _buildIconButton(
                   label: "Проверить\nтекст",
                   iconPath: "assets/check_text_icon.svg",
-                  onTap: () => _navigateWithDocType(
-                        (docType) => CheckTextPage(docType: docType),
-                  ),
+                  onTap: () async {
+                    if (await _hasDocumentAccess()) {
+                      _navigateWithDocType(
+                            (docType) => CheckTextPage(docType: docType),
+                      );
+                    }
+                  },
                 ),
                 _buildIconButton(
                   label: "Сканировать\nдокумент",
                   iconPath: "assets/scan_doc_icon.svg",
-                  onTap: () => _navigateWithDocType(
-                        (docType) => ScanDocumentPage(docType: docType),
-                  ),
+                  onTap: () async {
+                    if (await _hasDocumentAccess()) {
+                      _navigateWithDocType(
+                            (docType) => ScanDocumentPage(docType: docType),
+                      );
+                    }
+                  },
                 ),
                 _buildIconButton(
                   label: "Загрузить\nфайл",
                   iconPath: "assets/upload_file_icon.svg",
-                  onTap: () => _navigateWithDocType(
-                        (docType) => UploadFilePage(docType: docType),
-                  ),
+                  onTap: () async {
+                    if (await _hasDocumentAccess()) {
+                      _navigateWithDocType(
+                            (docType) => UploadFilePage(docType: docType),
+                      );
+                    }
+                  },
                 ),
               ],
             ),

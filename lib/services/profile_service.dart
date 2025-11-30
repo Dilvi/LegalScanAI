@@ -5,6 +5,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 class ProfileService {
   static const String baseUrl = "http://95.165.74.131:8080";
 
+  /// ================================
+  /// Загрузка профиля
+  /// ================================
   static Future<Map<String, dynamic>?> getProfile() async {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('auth_token');
@@ -13,22 +16,26 @@ class ProfileService {
 
     final response = await http.get(
       Uri.parse("$baseUrl/profile/get"),
-      headers: {"Authorization": token},
+      headers: {
+        "Authorization": token,
+        "Content-Type": "application/json"
+      },
     );
 
     if (response.statusCode == 200) {
-      return jsonDecode(response.body);
+      return jsonDecode(utf8.decode(response.bodyBytes));
     } else {
-      print("Ошибка загрузки профиля: ${response.body}");
+      print("Ошибка загрузки профиля: ${utf8.decode(response.bodyBytes)}");
       return null;
     }
   }
 
+  /// ================================
+  /// Обновление профиля
+  /// ================================
   static Future<bool> updateProfile({
-    required String name,
-    required String surname,
+    required String fullName,
     required String email,
-    required String phone,
   }) async {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('auth_token');
@@ -42,10 +49,8 @@ class ProfileService {
         "Authorization": token,
       },
       body: jsonEncode({
-        "name": name,
-        "surname": surname,
+        "fullName": fullName,
         "email": email,
-        "phone": phone,
       }),
     );
 

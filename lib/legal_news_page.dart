@@ -21,21 +21,49 @@ class _LegalNewsPageState extends State<LegalNewsPage> {
   int? selectedFavCategory;
 
   bool isLoading = true;
-  bool hasError = false;
   bool showFavorites = false;
 
   final String baseUrl = 'http://95.165.74.131:8082';
+  late Directory imagesDir;
 
   @override
   void initState() {
     super.initState();
+    _prepareFolders();
     _loadCachedData();
     _fetchCategories();
     _fetchNews(updateCache: true);
   }
 
   // ============================================================
-  // 📦 КЭШ
+  // 📁 Папка для изображений
+  // ============================================================
+
+  Future<void> _prepareFolders() async {
+    final dir = await getApplicationDocumentsDirectory();
+    imagesDir = Directory('${dir.path}/news_images');
+    if (!await imagesDir.exists()) {
+      await imagesDir.create(recursive: true);
+    }
+  }
+
+  Future<String?> downloadAndCacheImage(String url, int id) async {
+    try {
+      final file = File('${imagesDir.path}/$id.jpg');
+
+      if (await file.exists()) return file.path;
+
+      final response = await http.get(Uri.parse(url));
+      if (response.statusCode == 200) {
+        await file.writeAsBytes(response.bodyBytes);
+        return file.path;
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  // ============================================================
+  // 📦 Кэш
   // ============================================================
 
   Future<File> _getCacheFile(String name) async {
@@ -45,7 +73,7 @@ class _LegalNewsPageState extends State<LegalNewsPage> {
 
   Future<void> _saveCache(String name, dynamic data) async {
     final file = await _getCacheFile(name);
-    await file.writeAsString(jsonEncode(data), flush: true);
+    await file.writeAsString(jsonEncode(data));
   }
 
   Future<dynamic> _loadCache(String name) async {
@@ -58,17 +86,25 @@ class _LegalNewsPageState extends State<LegalNewsPage> {
     return null;
   }
 
+  bool toBool(dynamic v) {
+    if (v is bool) return v;
+    if (v is num) return v == 1;
+    if (v is String) return v.toLowerCase() == "true";
+    return false;
+  }
+
   Future<void> _loadCachedData() async {
     final cachedNews = await _loadCache('news');
     final cachedCats = await _loadCache('categories');
     final prefs = await SharedPreferences.getInstance();
+
     final favs = prefs.getStringList('favoriteNews') ?? [];
 
     if (cachedCats != null) categories = cachedCats;
 
     if (cachedNews != null) {
       for (var n in cachedNews) {
-        n['isFavorite'] = favs.contains("${n['id']}");
+        n['isFavorite'] = toBool(n['isFavorite']);
       }
 
       favoriteNews =
@@ -81,7 +117,7 @@ class _LegalNewsPageState extends State<LegalNewsPage> {
   }
 
   // ============================================================
-  // 📂 КАТЕГОРИИ
+  // Категории
   // ============================================================
 
   Future<void> _fetchCategories() async {
@@ -96,7 +132,7 @@ class _LegalNewsPageState extends State<LegalNewsPage> {
   }
 
   // ============================================================
-  // 📰 НОВОСТИ
+  // Новости
   // ============================================================
 
   Future<void> _fetchNews({int? categoryId, bool updateCache = false}) async {
@@ -107,34 +143,44 @@ class _LegalNewsPageState extends State<LegalNewsPage> {
           ? '$baseUrl/news'
           : '$baseUrl/news?category=$categoryId';
 
-      final res = await http.get(Uri.parse(url));
-      if (res.statusCode == 200) {
-        final data = jsonDecode(utf8.decode(res.bodyBytes));
+      final response = await http.get(Uri.parse(url));
 
-        // Устанавливаем isFavorite по SharedPreferences
-        final prefs = await SharedPreferences.getInstance();
-        final favs = prefs.getStringList('favoriteNews') ?? [];
+      if (response.statusCode != 200) throw Exception();
 
-        for (var n in data) {
-          n['isFavorite'] = favs.contains("${n['id']}");
+      final data = jsonDecode(utf8.decode(response.bodyBytes));
+      final prefs = await SharedPreferences.getInstance();
+      final favs = prefs.getStringList('favoriteNews') ?? [];
+
+      for (var n in data) {
+        n['isFavorite'] = favs.contains("${n['id']}");
+
+        if (n['imageUrl'] != null && n['imageUrl'] != "") {
+          final path = await downloadAndCacheImage(n['imageUrl'], n['id']);
+          n['cachedImagePath'] = path;
         }
-
-        setState(() {
-          newsList = data.where((n) => n['isFavorite'] != true).toList();
-          favoriteNews = data.where((n) => n['isFavorite'] == true).toList();
-        });
-
-        if (updateCache) _saveCache('news', data);
       }
+
+      setState(() {
+        newsList = data.where((n) => !n['isFavorite']).toList();
+        favoriteNews = data.where((n) => n['isFavorite']).toList();
+      });
+
+      if (updateCache) _saveCache('news', data);
     } catch (_) {
-      hasError = true;
+      // Но НЕ закрываем ленту — показываем SnackBar
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text("Ошибка соединения"),
+          backgroundColor: Colors.red,
+        ));
+      }
     }
 
-    setState(() => isLoading = false);
+    if (mounted) setState(() => isLoading = false);
   }
 
   // ============================================================
-  // ⭐ ИЗБРАННОЕ — НОВАЯ ЛОГИКА
+  // ⭐ Избранное
   // ============================================================
 
   Future<void> _toggleFavorite(Map<String, dynamic> news) async {
@@ -142,10 +188,8 @@ class _LegalNewsPageState extends State<LegalNewsPage> {
     final favs = prefs.getStringList('favoriteNews') ?? [];
 
     final id = "${news['id']}";
-    final bool isFav = news['isFavorite'] == true;
 
-    // Добавить / убрать
-    if (isFav) {
+    if (news['isFavorite']) {
       favs.remove(id);
     } else {
       favs.add(id);
@@ -153,100 +197,85 @@ class _LegalNewsPageState extends State<LegalNewsPage> {
 
     await prefs.setStringList('favoriteNews', favs);
 
-    news['isFavorite'] = !isFav;
+    news['isFavorite'] = !news['isFavorite'];
 
-    // Пересобрать списки
     _rebuildLists();
-
-    // 🔥 ВАЖНО: если избранное стало пустым → сразу выйти в ленту
-    if (showFavorites && favoriteNews.isEmpty) {
-      setState(() {
-        showFavorites = false;
-        selectedFavCategory = null;
-      });
-    }
   }
-
-
 
   void _rebuildLists() async {
     final prefs = await SharedPreferences.getInstance();
     final favs = prefs.getStringList('favoriteNews') ?? [];
 
-    // Объединяем текущие списки
     final all = [...newsList, ...favoriteNews];
-
-    // Убираем возможные дубликаты
-    final ids = <String>{};
     final unique = <Map<String, dynamic>>[];
 
-    for (final n in all) {
+    final seen = <String>{};
+    for (var n in all) {
       final id = "${n['id']}";
-      if (!ids.contains(id)) {
-        ids.add(id);
+      if (!seen.contains(id)) {
+        seen.add(id);
         unique.add(n);
       }
     }
 
-    // Обновляем isFavorite
-    for (final n in unique) {
+    for (var n in unique) {
       n['isFavorite'] = favs.contains("${n['id']}");
     }
 
-    // Пересобираем 2 списка
     setState(() {
-      newsList = unique.where((n) => n['isFavorite'] != true).toList();
-      favoriteNews = unique.where((n) => n['isFavorite'] == true).toList();
+      newsList = unique.where((n) => !n['isFavorite']).toList();
+      favoriteNews = unique.where((n) => n['isFavorite']).toList();
     });
   }
 
-
   // ============================================================
-  // 🧱 UI
+  // UI
   // ============================================================
 
   @override
   Widget build(BuildContext context) {
     final bottomInset = MediaQuery.of(context).padding.bottom;
 
-    List<dynamic> currentNews;
-
-    if (showFavorites) {
-      currentNews = selectedFavCategory == null
-          ? favoriteNews
-          : favoriteNews
-          .where((n) => n['category_id'] == selectedFavCategory)
-          .toList();
-    } else {
-      currentNews = selectedCategory == null
-          ? newsList
-          : newsList
-          .where((n) => n['category_id'] == selectedCategory)
-          .toList();
-    }
+    List<dynamic> currentNews = showFavorites
+        ? (selectedFavCategory == null
+        ? favoriteNews
+        : favoriteNews
+        .where((n) => n['category_id'] == selectedFavCategory)
+        .toList())
+        : (selectedCategory == null
+        ? newsList
+        : newsList
+        .where((n) => n['category_id'] == selectedCategory)
+        .toList());
 
     return SafeArea(
       child: RefreshIndicator(
-        onRefresh: () => _fetchNews(updateCache: true),
+        onRefresh: () async {
+          await Future.any([
+            _fetchNews(updateCache: true),
+            Future.delayed(const Duration(seconds: 5)),
+          ]);
+        },
         color: const Color(0xFF800000),
         child: Column(
           children: [
-            if (!showFavorites)
-              _buildCategoryBar()
-            else
-              _buildFavoriteCategoryBar(),
-
+            if (!showFavorites) _buildCategoryBar(),
+            if (showFavorites) _buildFavoriteCategoryBar(),
             _buildFavoritesToggleButton(),
-
             Expanded(
               child: isLoading
                   ? const Center(
-                  child: CircularProgressIndicator(
-                      color: Color(0xFF800000)))
+                child: CircularProgressIndicator(
+                  color: Color(0xFF800000),
+                ),
+              )
                   : ListView.builder(
                 physics: const AlwaysScrollableScrollPhysics(),
                 padding: EdgeInsets.fromLTRB(
-                  14, 8, 14, bottomInset + 16,
+                  14,
+                  8,
+                  14,
+                  bottomInset + 16,
                 ),
                 itemCount: currentNews.length,
                 itemBuilder: (context, index) {
@@ -261,15 +290,15 @@ class _LegalNewsPageState extends State<LegalNewsPage> {
   }
 
   // ============================================================
-  // 📌 КАТЕГОРИИ ОБЫЧНОГО СПИСКА
+  // Категории
   // ============================================================
 
   Widget _buildCategoryBar() {
     return SizedBox(
-      height: 56,
+      height: 62,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         itemCount: categories.length,
         separatorBuilder: (_, __) => const SizedBox(width: 8),
         itemBuilder: (context, index) {
@@ -284,7 +313,7 @@ class _LegalNewsPageState extends State<LegalNewsPage> {
             },
             child: Container(
               padding:
-              const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+              const EdgeInsets.symmetric(horizontal: 18, vertical: 13),
               decoration: BoxDecoration(
                 color: isSelected
                     ? const Color(0xFF800000)
@@ -295,10 +324,11 @@ class _LegalNewsPageState extends State<LegalNewsPage> {
                 child: Text(
                   cat['title'],
                   style: TextStyle(
+                    height: 1.05,
                     color: isSelected ? Colors.white : Colors.black,
                     fontWeight: FontWeight.w600,
                     fontFamily: 'DM Sans',
-                    fontSize: 14,
+                    fontSize: 15,
                   ),
                 ),
               ),
@@ -309,16 +339,12 @@ class _LegalNewsPageState extends State<LegalNewsPage> {
     );
   }
 
-  // ============================================================
-  // 📌 КАТЕГОРИИ ДЛЯ ИЗБРАННОГО
-  // ============================================================
-
   Widget _buildFavoriteCategoryBar() {
     return SizedBox(
-      height: 56,
+      height: 62,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         itemCount: categories.length,
         separatorBuilder: (_, __) => const SizedBox(width: 8),
         itemBuilder: (context, index) {
@@ -334,7 +360,7 @@ class _LegalNewsPageState extends State<LegalNewsPage> {
             },
             child: Container(
               padding:
-              const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+              const EdgeInsets.symmetric(horizontal: 18, vertical: 13),
               decoration: BoxDecoration(
                 color: isSelected
                     ? const Color(0xFF800000)
@@ -345,10 +371,11 @@ class _LegalNewsPageState extends State<LegalNewsPage> {
                 child: Text(
                   cat['title'],
                   style: TextStyle(
+                    height: 1.05,
                     color: isSelected ? Colors.white : Colors.black,
                     fontWeight: FontWeight.w600,
                     fontFamily: 'DM Sans',
-                    fontSize: 14,
+                    fontSize: 15,
                   ),
                 ),
               ),
@@ -360,7 +387,7 @@ class _LegalNewsPageState extends State<LegalNewsPage> {
   }
 
   // ============================================================
-  // 🔘 КНОПКА "СОХРАНЁННЫЕ"
+  // Кнопка "Сохранённые"
   // ============================================================
 
   Widget _buildFavoritesToggleButton() {
@@ -370,7 +397,7 @@ class _LegalNewsPageState extends State<LegalNewsPage> {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        height: 44,
+        height: 46,
         width: double.infinity,
         decoration: BoxDecoration(
           color: showFavorites
@@ -380,10 +407,7 @@ class _LegalNewsPageState extends State<LegalNewsPage> {
         ),
         child: InkWell(
           borderRadius: BorderRadius.circular(14),
-
-          // 🔥 КНОПКА ВСЕГДА ДОЛЖНА БЫТЬ АКТИВНА
           onTap: () {
-            // если избранных нет → просто выходим в обычную ленту
             if (!hasFavorites) {
               setState(() {
                 showFavorites = false;
@@ -392,17 +416,15 @@ class _LegalNewsPageState extends State<LegalNewsPage> {
               return;
             }
 
-            // если избранные есть → переключаем режим
             setState(() {
               showFavorites = !showFavorites;
               selectedFavCategory = null;
             });
           },
-
           child: Center(
             child: Text(
               !hasFavorites
-                  ? "Вернуться к новостям"        // 🔥 исправлено
+                  ? "Вернуться к новостям"
                   : (showFavorites
                   ? "Показать все новости"
                   : "Сохранённые новости"),
@@ -421,13 +443,13 @@ class _LegalNewsPageState extends State<LegalNewsPage> {
     );
   }
 
-
   // ============================================================
-  // 📰 КАРТОЧКА НОВОСТИ
+  // Новости
   // ============================================================
 
   Widget _buildNewsCard(Map<String, dynamic> item) {
-    final isFavorite = (item['isFavorite'] ?? false) == true;
+    final cachedImage = item['cachedImagePath'];
+    final isFavorite = item['isFavorite'] == true;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 14),
@@ -435,7 +457,7 @@ class _LegalNewsPageState extends State<LegalNewsPage> {
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
         boxShadow: const [
-          BoxShadow(color: Colors.black12, blurRadius: 4)
+          BoxShadow(color: Colors.black12, blurRadius: 4),
         ],
       ),
       child: Padding(
@@ -443,25 +465,26 @@ class _LegalNewsPageState extends State<LegalNewsPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (item['imageUrl'] != null &&
-                item['imageUrl'].isNotEmpty)
-              ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: Image.network(
-                  item['imageUrl'],
-                  height: 180,
-                  width: double.infinity,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => Container(
-                    height: 180,
-                    color: const Color(0xFFE0E0E0),
-                    child: const Icon(Icons.image_not_supported),
-                  ),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: cachedImage != null
+                  ? Image.file(
+                File(cachedImage),
+                height: 180,
+                width: double.infinity,
+                fit: BoxFit.cover,
+              )
+                  : Container(
+                height: 180,
+                width: double.infinity,
+                color: const Color(0xFFE0E0E0),
+                child: const Icon(
+                  Icons.image_not_supported,
+                  size: 48,
                 ),
               ),
-
+            ),
             const SizedBox(height: 10),
-
             Text(
               item['title'] ?? '',
               style: const TextStyle(
@@ -470,9 +493,7 @@ class _LegalNewsPageState extends State<LegalNewsPage> {
                 fontWeight: FontWeight.bold,
               ),
             ),
-
             const SizedBox(height: 8),
-
             Text(
               item['description'] ?? '',
               style: const TextStyle(
@@ -482,18 +503,14 @@ class _LegalNewsPageState extends State<LegalNewsPage> {
                 color: Colors.black87,
               ),
             ),
-
             const SizedBox(height: 10),
-
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
                 IconButton(
                   onPressed: () => _toggleFavorite(item),
                   icon: Icon(
-                    isFavorite
-                        ? Icons.bookmark
-                        : Icons.bookmark_outline,
+                    isFavorite ? Icons.bookmark : Icons.bookmark_outline,
                     color: isFavorite
                         ? const Color(0xFF800000)
                         : Colors.grey.shade600,

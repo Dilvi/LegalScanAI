@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 import 'package:webview_flutter/webview_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class LegalDatabasePage extends StatefulWidget {
   const LegalDatabasePage({super.key});
@@ -18,12 +19,58 @@ class _LegalDatabasePageState extends State<LegalDatabasePage> {
   List<dynamic> sections = [];
   bool isLoading = true;
   bool isRefreshing = false;
+  bool? hasAccess;
 
   @override
   void initState() {
     super.initState();
-    _loadCachedData();
-    _fetchUpdates();
+    _checkAccess();
+  }
+
+  // ======================================================
+  // CHECK SUBSCRIPTION ACCESS
+  // ======================================================
+
+  Future<void> _checkAccess() async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('auth_token');
+
+    if (token == null) {
+      setState(() => hasAccess = false);
+      return;
+    }
+
+    try {
+      final res = await http.get(
+        Uri.parse("http://95.165.74.131:8080/profile/get"),
+        headers: {"Authorization": "Bearer $token"},  // ✔ fixed
+      );
+
+      if (res.statusCode != 200) {
+        setState(() => hasAccess = false);
+        return;
+      }
+
+      final data = jsonDecode(res.body);
+      final subscription = data["subscription"];
+
+      if (subscription == null) {
+        setState(() => hasAccess = false);
+        return;
+      }
+
+      // ✔ Correct field name
+      final bool access = subscription["hasLegalBaseAccess"] == true;
+
+      setState(() => hasAccess = access);
+
+      if (access) {
+        _loadCachedData();
+        _fetchUpdates();
+      }
+    } catch (e) {
+      setState(() => hasAccess = false);
+    }
   }
 
   // ======================================================
@@ -73,47 +120,35 @@ class _LegalDatabasePageState extends State<LegalDatabasePage> {
           );
         }
       }
-    } catch (_) {
-      if (showSnackbar && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("⚠ Не удалось обновить"),
-            backgroundColor: Colors.grey,
-          ),
-        );
-      }
-    }
+    } catch (_) {}
   }
 
   // ======================================================
-  // DOWNLOAD HTML + CSS CORRECTLY
+  // DOWNLOAD HTML + CSS
   // ======================================================
 
   Future<void> _cacheHtmlFiles(List<dynamic> nodes) async {
     final dir = await getApplicationDocumentsDirectory();
 
-    // Download CSS
-    final cssFile = File("${dir.path}/style.css");
     try {
       final cssRes = await http.get(Uri.parse("$baseUrl/html/style.css"));
       if (cssRes.statusCode == 200) {
+        final cssFile = File("${dir.path}/style.css");
         await cssFile.writeAsBytes(cssRes.bodyBytes, flush: true);
       }
     } catch (_) {}
 
-    // Recursive download
     Future<void> downloadNode(dynamic node) async {
       if (node is! Map<String, dynamic>) return;
 
       if (node["html"] != null) {
-        final remotePath = node["html"]; // "/html/.../moscow_fine.html"
-        final localRelativePath = remotePath.replaceFirst("/html/", "");
+        final remotePath = node["html"];
+        final localRelative = remotePath.replaceFirst("/html/", "");
 
-        final file = File("${dir.path}/$localRelativePath");
+        final file = File("${dir.path}/$localRelative");
 
         try {
           await file.parent.create(recursive: true);
-
           final res = await http.get(Uri.parse("$baseUrl$remotePath"));
           if (res.statusCode == 200) {
             await file.writeAsBytes(res.bodyBytes, flush: true);
@@ -122,8 +157,8 @@ class _LegalDatabasePageState extends State<LegalDatabasePage> {
       }
 
       if (node["children"] != null) {
-        for (var child in node["children"]) {
-          await downloadNode(child);
+        for (var c in node["children"]) {
+          await downloadNode(c);
         }
       }
     }
@@ -139,6 +174,19 @@ class _LegalDatabasePageState extends State<LegalDatabasePage> {
 
   @override
   Widget build(BuildContext context) {
+    // 🔥 1 — Проверяем доступ
+    if (hasAccess == null) {
+      return const Center(
+        child: CircularProgressIndicator(color: Color(0xFF800000)),
+      );
+    }
+
+    // 🔥 2 — Нет доступа
+    if (hasAccess == false) {
+      return _buildNoAccessPage();
+    }
+
+    // 🔥 3 — Загрузка базы
     if (isLoading) {
       return const Center(
         child: CircularProgressIndicator(color: Color(0xFF800000)),
@@ -182,6 +230,49 @@ class _LegalDatabasePageState extends State<LegalDatabasePage> {
       ),
     );
   }
+
+  // ======================================================
+  // NO ACCESS PAGE
+  // ======================================================
+
+  Widget _buildNoAccessPage() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 40),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: const [
+            Icon(Icons.lock_outline, color: Color(0xFF800000), size: 80),
+            SizedBox(height: 20),
+            Text(
+              "Нет доступа к правовой базе",
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontFamily: 'DM Sans',
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: Colors.black,
+              ),
+            ),
+            SizedBox(height: 12),
+            Text(
+              "Оформите подписку для получения полного доступа.",
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontFamily: 'DM Sans',
+                fontSize: 15,
+                color: Color(0xFF737C97),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ======================================================
+  // CARDS
+  // ======================================================
 
   Widget _buildSectionCard(Map<String, dynamic> node, Color color) {
     return Material(
@@ -245,11 +336,10 @@ class _LegalNodePageState extends State<LegalNodePage> {
   Widget build(BuildContext context) {
     final node = widget.node;
 
-    // HTML PAGE
     if (node["html"] != null) {
       return LegalHtmlPage(
         title: node["title"],
-        htmlPath: node["html"], // передаем полный путь!
+        htmlPath: node["html"],
       );
     }
 
@@ -284,7 +374,6 @@ class _LegalNodePageState extends State<LegalNodePage> {
             ),
         ],
       ),
-
       body: ListView.builder(
         padding: const EdgeInsets.all(16),
         itemCount: children.length,
@@ -314,7 +403,8 @@ class _LegalNodePageState extends State<LegalNodePage> {
                 );
               },
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+                padding:
+                const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
                 child: Text(
                   child["title"] ?? "",
                   style: const TextStyle(
@@ -338,7 +428,7 @@ class _LegalNodePageState extends State<LegalNodePage> {
 
 class LegalHtmlPage extends StatelessWidget {
   final String title;
-  final String htmlPath; // now we pass the full backend path
+  final String htmlPath;
 
   const LegalHtmlPage({
     super.key,
